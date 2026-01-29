@@ -56,9 +56,13 @@ class KWMoments:
         self.N = np.sum(self.sample_sizes)
         self.max_moment = max_moment
         
-        # Auto-select exact vs asymptotic
+        # Auto-select exact vs asymptotic based on k and N
+        # For k>=4, exact computation explodes faster, so use stricter limit
         if use_exact is None:
-            self.use_exact = self.N <= 20
+            if self.k <= 3:
+                self.use_exact = self.N <= 15
+            else:
+                self.use_exact = self.N <= 13
         else:
             self.use_exact = use_exact
         
