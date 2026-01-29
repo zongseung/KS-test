@@ -90,7 +90,7 @@ flowchart TB
 ```mermaid
 flowchart LR
     subgraph Step1["1. H 통계량"]
-        H1["$$H = \frac{12}{N(N+1)} \sum_{i=1}^{k} \frac{R_i^2}{n_i} - 3(N+1)$$"]
+        H1["H = 12/N(N+1) × Σ(Rᵢ²/nᵢ) - 3(N+1)"]
     end
 
     subgraph Step2["2. 큐뮬런트"]
