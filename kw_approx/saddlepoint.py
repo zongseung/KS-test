@@ -252,23 +252,24 @@ class SaddlepointApproximation:
     def density_approximation(self, x: float, continuity_correction: bool = False) -> float:
         """
         Daniels' saddlepoint density approximation.
-        
+
         f_SP(x) = (2π K''_H(t_hat))^{-1/2} * exp(K_H(t_hat) - x*t_hat)
-        
+
         Parameters
         ----------
         x : float
             Point at which to evaluate density
         continuity_correction : bool
-            Whether to apply continuity correction (shifts x by 0.5)
-            
+            Whether to apply continuity correction for discrete distributions
+
         Returns
         -------
         float
             Approximate density f_H(x)
         """
         if continuity_correction:
-            x = x + 0.5
+            # For discrete distributions, adjust evaluation point
+            x = x - 0.5
         
         t_hat = self.find_saddlepoint(x)
         
@@ -285,27 +286,33 @@ class SaddlepointApproximation:
     def tail_probability_lr(self, v: float, continuity_correction: bool = False) -> float:
         """
         Lugannani-Rice saddlepoint approximation for tail probability.
-        
+
         P(H >= v) ≈ 1 - Φ(w_hat) + φ(w_hat) * (1/u_hat - 1/w_hat)
-        
+
         where:
         - w_hat = sign(t_hat) * sqrt(2*(t_hat*v - K_H(t_hat)))
         - u_hat = t_hat * sqrt(K''_H(t_hat))
-        
+
+        For discrete distributions, continuity correction adjusts v to
+        better approximate the discrete tail probability.
+
         Parameters
         ----------
         v : float
             Critical value
         continuity_correction : bool
-            Whether to apply continuity correction
-            
+            Whether to apply continuity correction (shifts v by -0.5
+            to account for discrete nature of the statistic)
+
         Returns
         -------
         float
             Approximate P(H >= v)
         """
         if continuity_correction:
-            v = v + 0.5
+            # For discrete distributions, P(H >= v) is approximated by
+            # the continuous integral from v - 0.5 to infinity
+            v = v - 0.5
         
         mean = self.moments.get_mean()
         
