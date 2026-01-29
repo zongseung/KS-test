@@ -22,6 +22,127 @@ $$H = \frac{12}{N(N+1)} \sum_{i=1}^{k} \frac{R_i^2}{n_i} - 3(N+1)$$
 
 전통적으로 $H$의 귀무분포는 자유도 $k-1$인 카이제곱 분포로 근사하지만, 소표본에서는 정확도가 떨어집니다. 이 패키지는 더 정확한 고차 점근 근사 방법들을 제공합니다.
 
+## 설치
+
+```bash
+pip install numpy scipy
+pip install -e .
+```
+
+## 빠른 시작
+
+```python
+from kw_approx import KWApproximator
+
+# 3개 집단, 각 3명씩
+approx = KWApproximator([3, 3, 3])
+
+# H = 4.62에서 꼬리확률 P(H >= 4.62)
+p_value = approx.tail_probability(4.62, method='exact')
+print(f"Exact P-value: {p_value:.6f}")
+
+# 여러 방법 비교
+results = approx.compare_methods(4.62)
+for method, p in results.items():
+    print(f"{method}: {p:.6f}")
+```
+
+## 계산 흐름도 (Algorithm Flow)
+
+```mermaid
+flowchart TB
+    subgraph Input["입력"]
+        A[("표본 크기<br/>(n₁, n₂, ..., nₖ)")]
+        B[("H 통계량<br/>또는 α")]
+    end
+
+    subgraph Moments["모멘트 계산 (KWMoments)"]
+        C["원시 모멘트<br/>μₘ = E[Hᵐ]"]
+        D["중심 모멘트<br/>E[(H-μ)ᵐ]"]
+        E["큐뮬런트<br/>κ₁, κ₂, κ₃, κ₄"]
+    end
+
+    subgraph Methods["근사 방법"]
+        F["Chi-square<br/>χ²ₖ₋₁"]
+        G["Saddlepoint<br/>SD1, SD2"]
+        H["PAM/PAG<br/>다항식 조정 감마"]
+        I["Edgeworth<br/>급수 전개"]
+        J["Gram-Charlier<br/>GC-A"]
+        K["Exact<br/>정확 분포"]
+    end
+
+    subgraph Output["출력"]
+        L[("꼬리확률<br/>P(H ≥ h)")]
+        M[("임계값<br/>cα")]
+    end
+
+    A --> C
+    C --> D
+    D --> E
+    E --> F & G & H & I & J
+    A --> K
+    B --> F & G & H & I & J & K
+    F & G & H & I & J & K --> L & M
+```
+
+## 수식 전개 흐름도 (Formula Flow)
+
+```mermaid
+flowchart LR
+    subgraph Step1["1. H 통계량"]
+        H1["$$H = \frac{12}{N(N+1)} \sum_{i=1}^{k} \frac{R_i^2}{n_i} - 3(N+1)$$"]
+    end
+
+    subgraph Step2["2. 큐뮬런트"]
+        K1["κ₁ = k-1"]
+        K2["κ₂ = Var(H)"]
+        K3["κ₃, κ₄"]
+    end
+
+    subgraph Step3["3. CGF 근사"]
+        CGF1["ER1: Σκᵢtⁱ/i!"]
+        CGF2["ER2: log형"]
+    end
+
+    subgraph Step4["4. 꼬리확률"]
+        P1["Lugannani-Rice"]
+        P2["PAG 적분"]
+        P3["Edgeworth CDF"]
+    end
+
+    H1 --> K1 & K2 & K3
+    K1 & K2 & K3 --> CGF1 & CGF2
+    CGF1 & CGF2 --> P1
+    K1 & K2 & K3 --> P2 & P3
+```
+
+## 근사 방법별 수식 흐름
+
+```mermaid
+flowchart TB
+    subgraph Saddlepoint["Saddlepoint Approximation"]
+        direction TB
+        S1["CGF: K_H(t)"] --> S2["Saddlepoint 방정식<br/>K'_H(t̂) = v"]
+        S2 --> S3["ŵ = sgn(t̂)√(2(t̂v - K_H(t̂)))"]
+        S2 --> S4["û = t̂√(K''_H(t̂))"]
+        S3 & S4 --> S5["P(H≥v) ≈ 1-Φ(ŵ)+φ(ŵ)(1/û - 1/ŵ)"]
+    end
+
+    subgraph PAM["Polynomially Adjusted Gamma"]
+        direction TB
+        P1["감마 기저<br/>ψ(x) = Γ(α,β)"] --> P2["모멘트 행렬<br/>M[h,i] = m(h+i)"]
+        P2 --> P3["계수 계산<br/>ξ = M⁻¹μ"]
+        P3 --> P4["f_PAG(x) = ψ(x)Σξᵢxⁱ"]
+        P4 --> P5["CDF 적분"]
+    end
+
+    subgraph GramCharlier["Gram-Charlier"]
+        direction TB
+        G1["표준화<br/>z = (h-μ)/σ"] --> G2["Hermite 다항식<br/>H₃, H₄, H₆"]
+        G2 --> G3["f_GC = φ(z)[1 + γ₁H₃/6 + γ₂H₄/24 + γ₁²H₆/72]"]
+    end
+```
+
 ## 구현된 근사 방법
 
 ### 1. Polynomially Adjusted Gamma (PAM/PAG)
@@ -32,25 +153,13 @@ Ha and Provost (2007), Provost et al. (2009)의 반모수적 밀도 근사법입
 
 $$f_H(x; d) = \psi(x) \sum_{i=0}^{d} \xi_i x^i$$
 
-여기서 $\psi(x)$는 감마 기저 밀도:
-
-$$\psi(x) = \frac{1}{\Gamma(\alpha)\beta^{\alpha}} x^{\alpha-1} e^{-x/\beta}$$
-
-감마 파라미터는 처음 두 모멘트로부터 추정:
-- $\alpha = \mu_H(1)^2 / (\mu_H(2) - \mu_H(1)^2)$
-- $\beta = \mu_H(2) / \mu_H(1) - \mu_H(1)$
-
-다항식 계수 $\xi_i$는 모멘트 매칭으로 계산:
-
-$$(\xi_0, \ldots, \xi_d)' = M^{-1} (\mu_H(0), \ldots, \mu_H(d))'$$
+여기서 $\psi(x)$는 감마 기저 밀도입니다.
 
 ### 2. Saddlepoint Approximation (SD1, SD2, SDC1, SDC2)
 
 Daniels (1954)의 새들포인트 밀도 근사:
 
 $$f_{SP}(x) = \left(2\pi K_H^{(2)}(\hat{t})\right)^{-1/2} \exp(K_H(\hat{t}) - x\hat{t})$$
-
-여기서 $\hat{t}$는 $K_H^{(1)}(t) = x$의 해(새들포인트)입니다.
 
 **Lugannani-Rice 꼬리확률 근사:**
 
@@ -60,26 +169,20 @@ $$\Pr(H \geq v) \approx 1 - \Phi(\hat{w}) + \phi(\hat{w})\left(\frac{1}{\hat{u}}
 - $\hat{w} = \text{sgn}(\hat{t})\sqrt{2(\hat{t}v - K_H(\hat{t}))}$
 - $\hat{u} = \hat{t}\sqrt{K_H^{(2)}(\hat{t})}$
 
-**CGF 근사 방법:**
+**CGF (Cumulant Generating Function) 근사:**
 
-| 방법 | 코드 | 공식 |
-|------|------|------|
-| ER1 (Easton-Ronchetti) | `SD1` | $K_H(x) \approx \sum_{i=1}^{4} \kappa_i x^i / i!$ |
-| ER2 | `SD2` | $K_H(x) \approx \kappa_1 x + \frac{\kappa_2}{2}x^2 + \log(1 + \frac{\kappa_3}{6}x^3 + \frac{3\kappa_4}{72}x^4 + \frac{\kappa_3^2}{72}x^6)$ |
-| Wang (1992) | - | $K_H(x;p) = \kappa_1 x + \frac{\kappa_2}{2}x^2 + (\frac{\kappa_3}{6}x^3 + \frac{\kappa_4}{24}x^4)\eta_p(x)$ |
-| KT (Kakizawa-Taniguchi) | - | $K_H(x) \approx \kappa_1 x + \frac{(1+\kappa_2)x^2}{2} + \frac{\kappa_3 x^3}{6} + \frac{\kappa_4 x^4}{24}$ |
+**ER1 (Easton-Ronchetti 1):**
+$$K_H(t) \approx \sum_{i=1}^{4} \frac{\kappa_i t^i}{i!}$$
+
+**ER2 (Easton-Ronchetti 2):**
+$$K_H(t) \approx \kappa_1 t + \frac{\kappa_2}{2}t^2 + \log\left(1 + \frac{\kappa_3}{6}t^3 + \frac{3\kappa_4}{72}t^4 + \frac{\kappa_3^2}{72}t^6\right)$$
 
 **연속성 보정 (Continuity Correction):**
-
-이산 분포의 특성을 고려한 연속성 보정 버전 (SDC1, SDC2)도 제공됩니다. $v$를 $v - 0.5$로 조정하여 이산 분포의 경계 효과를 보정합니다.
+이산 분포의 특성을 보정하기 위해 $v$를 $v + 1/2$로 대체하여 SDC1, SDC2 계산
 
 ### 3. Edgeworth Expansion (ED)
 
-Berry-Esseen 정리 기반의 Edgeworth 전개로, 카이제곱 근사에 왜도와 첨도 보정을 추가합니다:
-
-$$F_N(x) \approx \Phi(x) - \frac{\lambda_3}{6\sqrt{N}}(x^2 - 1)\phi(x) - \frac{\lambda_4}{24N}(x^3 - 3x)\phi(x) - \frac{\lambda_3^2}{72N}(x^5 - 10x^3 + 15x)\phi(x)$$
-
-여기서 $\lambda_3 = E[T_N^3]$ (왜도), $\lambda_4 = E[T_N^4] - 3$ (초과첨도)입니다.
+Berry-Esseen 정리 기반의 Edgeworth 전개로, 카이제곱 근사에 왜도와 첨도 보정을 추가합니다.
 
 ### 4. Gram-Charlier Series (GC-A)
 
@@ -87,26 +190,110 @@ $$F_N(x) \approx \Phi(x) - \frac{\lambda_3}{6\sqrt{N}}(x^2 - 1)\phi(x) - \frac{\
 
 $$f_{GC}(h) \approx \phi\left(\frac{h-\mu}{\sigma}\right)\left[1 + \frac{\gamma_1}{6}H_3(z) + \frac{\gamma_2}{24}H_4(z) + \frac{\gamma_1^2}{72}H_6(z)\right]$$
 
-여기서:
-- $z = (h-\mu)/\sigma$
-- $\gamma_1$: 왜도 (skewness)
-- $\gamma_2$: 초과첨도 (excess kurtosis)
-- $H_n(z)$: Hermite 다항식
-
-**Hermite 다항식:**
-- $H_3(z) = z^3 - 3z$
-- $H_4(z) = z^4 - 6z^2 + 3$
-- $H_6(z) = z^6 - 15z^4 + 45z^2 - 15$
-
 ### 5. Exact Distribution
 
 Iman et al. (1975)의 재귀 알고리즘을 사용한 정확 분포 계산입니다. 소표본(N ≤ 20)에서만 실용적입니다.
 
-순위합 $(r_1, \ldots, r_k)$를 달성하는 경우의 수에 대한 재귀 공식:
+## 모멘트와 큐뮬런트
 
-$$W(r_1, r_2, r_3; n_1, n_2, n_3) = W(r_1-N, r_2, r_3; n_1-1, n_2, n_3) + W(r_1, r_2-N, r_3; n_1, n_2-1, n_3) + W(r_1, r_2, r_3-N; n_1, n_2, n_3-1)$$
+귀무가설 하에서 H 통계량의 기본 모멘트:
+
+- **평균**: $E(H) = k - 1$
+- **분산**: $\text{Var}(H) = 2(k-1) \cdot \frac{N+1}{N-1} \cdot \left[1 - \frac{\sum_{i=1}^{k} n_i^{-1} - k/N}{(N+1)(k-1)}\right]$
+
+**큐뮬런트** (Cumulants):
+- $\kappa_1 = E(H) = k - 1$
+- $\kappa_2 = \text{Var}(H)$
+- $\kappa_3 = \mu_3$ (third central moment)
+- $\kappa_4 = \mu_4 - 3\sigma^4$ (excess kurtosis × $\sigma^4$)
+
+**카이제곱 분포의 극한 큐뮬런트** ($\chi^2_{k-1}$):
+- $\kappa_1^{(\infty)} = k - 1$
+- $\kappa_2^{(\infty)} = 2(k - 1)$
+- $\kappa_3^{(\infty)} = 8(k - 1)$
+- $\kappa_4^{(\infty)} = 48(k - 1)$
+
+## 사용 가능한 방법들
+
+| 코드명 | 설명 | 논문 명칭 |
+|--------|------|----------|
+| `chi_square` | 카이제곱 근사 | CHI |
+| `saddlepoint` | 새들포인트 (ER1 CGF) | SD1 |
+| `saddlepoint_sd2` | 새들포인트 (ER2 CGF) | SD2 |
+| `saddlepoint_cc` | 새들포인트 + 연속성 보정 | SDC1 |
+| `saddlepoint_cc2` | 새들포인트 SD2 + 연속성 보정 | SDC2 |
+| `edgeworth` | Edgeworth 전개 | ED |
+| `gram_charlier` | Gram-Charlier 급수 | GC-A |
+| `pam` | PAM (degree 4) | PAG(4) |
+| `pam6` | PAM (degree 6) | PAG(6) |
+| `exact` | 정확 분포 | E-P |
 
 ## 패키지 구조
+
+```mermaid
+classDiagram
+    class KWApproximator {
+        +sample_sizes: List
+        +tail_probability(H, method)
+        +critical_value(alpha, method)
+        +compare_methods(H)
+    }
+
+    class KWMoments {
+        +raw_moments: Dict
+        +cumulants: Dict
+        +get_mean()
+        +get_variance()
+        +get_skewness()
+        +get_kurtosis()
+    }
+
+    class SaddlepointApproximation {
+        +cgf_method: str
+        +cumulant_generating_function(t)
+        +find_saddlepoint(x)
+        +tail_probability_lr(v)
+    }
+
+    class PolynomialAdjustedGamma {
+        +alpha, beta: float
+        +xi: ndarray
+        +pdf(x)
+        +cdf(c)
+        +sf(c)
+    }
+
+    class EdgeworthApproximation {
+        +lambda3, lambda4: float
+        +cdf(h)
+        +sf(h)
+    }
+
+    class GramCharlierApproximation {
+        +gamma1, gamma2: float
+        +pdf(h)
+        +cdf(h)
+    }
+
+    class ExactDistribution {
+        +distribution: Dict
+        +sf(h)
+        +cdf(h)
+    }
+
+    KWApproximator --> KWMoments
+    KWApproximator --> SaddlepointApproximation
+    KWApproximator --> PolynomialAdjustedGamma
+    KWApproximator --> EdgeworthApproximation
+    KWApproximator --> GramCharlierApproximation
+    KWApproximator --> ExactDistribution
+    SaddlepointApproximation --> KWMoments
+    PolynomialAdjustedGamma --> KWMoments
+    EdgeworthApproximation --> KWMoments
+    GramCharlierApproximation --> KWMoments
+```
+
+### 파일 구조
 
 ```
 kw_approx/
@@ -124,50 +311,10 @@ examples/
 └── reproduce_paper_tables.py  # 논문 테이블 재현
 
 tests/
-└── test_approximations.py     # 31개 테스트 케이스
+└── test_approximations.py     # 테스트 케이스
 ```
 
-## 설치
-
-```bash
-pip install numpy scipy
-pip install -e .
-```
-
-## 사용법
-
-### 기본 사용
-
-```python
-from kw_approx import KWApproximator
-
-# 3개 집단, 각 3명씩
-approx = KWApproximator([3, 3, 3])
-
-# H = 4.62에서 꼬리확률 P(H >= 4.62)
-p_value = approx.tail_probability(4.62, method='pam6')
-print(f"P-value (PAM degree 6): {p_value:.6f}")
-
-# 여러 방법 비교
-results = approx.compare_methods(4.62)
-for method, p in results.items():
-    print(f"{method}: {p:.6f}")
-```
-
-### 사용 가능한 방법들
-
-| 코드명 | 설명 | 논문 명칭 |
-|--------|------|----------|
-| `chi_square` | 카이제곱 근사 | CHI |
-| `saddlepoint` | 새들포인트 (ER1 CGF) | SD1 |
-| `saddlepoint_sd2` | 새들포인트 (ER2 CGF) | SD2 |
-| `saddlepoint_cc` | 새들포인트 + 연속성 보정 | SDC1 |
-| `saddlepoint_cc2` | 새들포인트 SD2 + 연속성 보정 | SDC2 |
-| `edgeworth` | Edgeworth 전개 | ED |
-| `gram_charlier` | Gram-Charlier 급수 | GC-A |
-| `pam` | PAM (degree 4) | PAG(4) |
-| `pam6` | PAM (degree 6) | PAG(6) |
-| `exact` | 정확 분포 | E-P |
+## 상세 사용법
 
 ### 개별 근사 클래스 사용
 
@@ -214,6 +361,40 @@ approx = KWApproximator([5, 5, 5])
 # 유의수준 0.10에서 임계값
 cv = approx.critical_value(0.10, method='pam6')
 print(f"Critical value (alpha=0.10): {cv:.4f}")
+
+# 여러 유의수준 비교
+for alpha in [0.10, 0.05, 0.01]:
+    cv_exact = approx.critical_value(alpha, method='exact')
+    cv_chi2 = approx.critical_value(alpha, method='chi_square')
+    print(f"alpha={alpha}: Exact={cv_exact:.4f}, Chi-square={cv_chi2:.4f}")
+```
+
+### 실제 데이터에 적용
+
+```python
+import numpy as np
+from scipy import stats
+from kw_approx import KWApproximator
+
+# 데이터 생성
+np.random.seed(42)
+group1 = np.random.normal(10, 2, 5)
+group2 = np.random.normal(12, 2, 5)
+group3 = np.random.normal(11, 2, 5)
+
+# SciPy로 H 통계량 계산
+result = stats.kruskal(group1, group2, group3)
+H = result.statistic
+
+# 다양한 방법으로 p-value 계산
+approx = KWApproximator([5, 5, 5])
+
+print(f"H statistic: {H:.4f}")
+print(f"SciPy p-value: {result.pvalue:.4f}")
+
+for method in ['exact', 'chi_square', 'saddlepoint', 'pam6']:
+    p = approx.tail_probability(H, method)
+    print(f"{method}: {p:.4f}")
 ```
 
 ## 방법별 권장 사용 상황
@@ -225,97 +406,38 @@ print(f"Critical value (alpha=0.10): {cv:.4f}")
 | 30 < N ≤ 100 | `pam` | PAM (degree 4) 충분히 정확 |
 | N > 100 | `saddlepoint` | 새들포인트 효율적 |
 
-## 논문 결과 재현
+## 예제 실행
 
-### Table 4.1 ($n_1=3, n_2=3, n_3=3$, $H=4.62222$)
+### 논문 테이블 재현
 
-| 방법 | 논문 값 | 코드 결과 |
-|------|---------|----------|
-| Exact (E-P) | 0.1000 | 0.1000 ✓ |
-| Chi-square (CHI) | - | 0.0992 |
-| Saddlepoint (SD1) | 0.0789 | 0.0755 |
-| Saddlepoint CC (SDC1) | 0.1245 | 0.1142 |
-| Edgeworth (ED) | 0.090 | 0.0742 |
-| PAM (degree 4) | 0.0981 | 0.0933 |
-| PAM (degree 6) | 0.0934 | 0.0882 |
+```bash
+python examples/reproduce_paper_tables.py
+```
 
-### Table 4.5 ($n_1=3, n_2=2, n_3=2, n_4=5$, $H=5.587179$)
+### 무작위 표본 크기 조합 생성
 
-| 방법 | 논문 값 | 코드 결과 |
-|------|---------|----------|
-| Chi-square (CHI) | 0.1335 | 0.1335 ✓ |
-| Saddlepoint (SD1) | 0.1054 | 0.1054 ✓ |
-| Saddlepoint CC (SDC1) | 0.1483 | 0.1495 |
-| PAM (degree 6) | 0.1114 | 0.1114 ✓ |
+```python
+from examples.reproduce_paper_tables import (
+    generate_random_three_group_designs,
+    generate_random_four_group_designs,
+    comprehensive_random_study
+)
+
+# 3-group 디자인 무작위 생성 및 테스트
+generate_random_three_group_designs(n_designs=10, seed=42)
+
+# 4-group 디자인 무작위 생성 및 테스트
+generate_random_four_group_designs(n_designs=10, seed=42)
+
+# 종합 연구: 균형/불균형 다양한 k-group 디자인
+comprehensive_random_study(n_per_category=5, seed=42)
+```
 
 ## 테스트
 
 ```bash
 # 전체 테스트 실행
 python -m pytest tests/test_approximations.py -v
-
-# 31개 테스트 모두 통과
-```
-
-## 코드 검토 결과
-
-### 구현 검증
-
-논문의 수학 공식과 코드 구현을 비교 검토한 결과:
-
-1. **H 통계량 계산** (`kruskal_wallis.py`): 논문의 공식과 일치 ✓
-2. **PAM 방법** (`pam.py`):
-   - 감마 파라미터 추정: 정확 ✓
-   - 모멘트 행렬 구성: 정확 ✓
-   - 불완전 감마 함수를 이용한 CDF: 정확 ✓
-3. **새들포인트 근사** (`saddlepoint.py`):
-   - Daniels density: 정확 ✓
-   - Lugannani-Rice 공식: 정확 ✓
-   - CGF 근사 (ER1, ER2, Wang, KT): 정확 ✓
-   - 연속성 보정: 정확 ✓
-4. **Edgeworth 전개** (`edgeworth.py`):
-   - Hermite 다항식 기반 보정: 정확 ✓
-   - 카이제곱 기반 대안 구현: 정확 ✓
-5. **Gram-Charlier** (`gram_charlier.py`):
-   - Hermite 다항식: 정확 ✓
-   - 급수 전개 공식: 정확 ✓
-6. **정확 분포** (`exact.py`):
-   - Iman et al. (1975) 재귀 알고리즘: 정확 ✓
-
-### 주의사항
-
-- **Gram-Charlier**: 왜도/첨도가 큰 경우 불안정할 수 있음 (`is_stable()` 메서드로 확인 가능)
-- **Edgeworth**: 격자형(lattice) 분포에서 톱니파(sawtooth) 오차 발생 가능
-- **Exact**: N > 20인 경우 계산 시간이 급격히 증가
-- **Saddlepoint**: CGF 근사의 정확도는 샘플 크기에 따라 달라질 수 있음
-
-## 모듈 상세
-
-### KruskalWallisStatistic
-
-H 통계량의 기본 계산:
-
-```python
-from kw_approx import KruskalWallisStatistic
-
-kw = KruskalWallisStatistic([3, 3, 3])
-print(f"E[H] = {kw.mean()}")        # k - 1 = 2
-print(f"Var[H] = {kw.variance()}")  # 분산
-```
-
-### KWMoments
-
-모멘트 및 큐뮬런트 계산:
-
-```python
-from kw_approx import KWMoments
-
-moments = KWMoments([3, 3, 3], max_moment=6)
-print(f"Mean: {moments.get_mean()}")
-print(f"Variance: {moments.get_variance()}")
-print(f"Skewness: {moments.get_skewness()}")
-print(f"Kurtosis: {moments.get_kurtosis()}")
-print(f"Gamma params: {moments.get_gamma_params()}")
 ```
 
 ## 의존성
