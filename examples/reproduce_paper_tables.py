@@ -354,7 +354,7 @@ def reproduce_tables_4_6_4_7():
         print("  * E-P column: simulation-based (10,000 iterations) for large N")
 
 
-def generate_random_three_group_designs(n_designs: int = 10, seed: int = 42):
+def generate_random_three_group_designs(n_designs: int = 10):
     """
     Generate random three-group designs and compare approximation methods.
 
@@ -362,13 +362,8 @@ def generate_random_three_group_designs(n_designs: int = 10, seed: int = 42):
     ----------
     n_designs : int
         Number of random designs to generate
-    seed : int
-        Random seed for reproducibility
     """
-    print_header(f"Random Three-Group Designs (n={n_designs}, seed={seed})")
-
-    random.seed(seed)
-    np.random.seed(seed)
+    print_header(f"Random Three-Group Designs (n={n_designs})")
 
     headers = ["Config", "N", "H(10%)", "E-P", "CHI", "SD1", "SDC1", "PAG(4)", "PAG(6)"]
     widths = [14, 6, 10, 10, 10, 10, 10, 10, 10]
@@ -421,7 +416,7 @@ def generate_random_three_group_designs(n_designs: int = 10, seed: int = 42):
     print("  * E-P column: simulation-based (10,000 iterations) for N > 15")
 
 
-def generate_random_four_group_designs(n_designs: int = 10, seed: int = 42):
+def generate_random_four_group_designs(n_designs: int = 10):
     """
     Generate random four-group designs and compare approximation methods.
 
@@ -429,13 +424,8 @@ def generate_random_four_group_designs(n_designs: int = 10, seed: int = 42):
     ----------
     n_designs : int
         Number of random designs to generate
-    seed : int
-        Random seed for reproducibility
     """
-    print_header(f"Random Four-Group Designs (n={n_designs}, seed={seed})")
-
-    random.seed(seed)
-    np.random.seed(seed)
+    print_header(f"Random Four-Group Designs (n={n_designs})")
 
     headers = ["Config", "N", "H(10%)", "E-P", "CHI", "SD1", "SDC1", "PAG(4)", "PAG(6)"]
     widths = [16, 6, 10, 10, 10, 10, 10, 10, 10]
@@ -492,7 +482,7 @@ def generate_random_four_group_designs(n_designs: int = 10, seed: int = 42):
     print("  * E-P column: simulation-based (10,000 iterations) for N > 13")
 
 
-def generate_random_k_group_designs(k: int = 5, n_designs: int = 10, seed: int = 42):
+def generate_random_k_group_designs(k: int = 5, n_designs: int = 10):
     """
     Generate random k-group designs and compare approximation methods.
 
@@ -502,13 +492,8 @@ def generate_random_k_group_designs(k: int = 5, n_designs: int = 10, seed: int =
         Number of groups
     n_designs : int
         Number of random designs to generate
-    seed : int
-        Random seed for reproducibility
     """
-    print_header(f"Random {k}-Group Designs (n={n_designs}, seed={seed})")
-
-    random.seed(seed)
-    np.random.seed(seed)
+    print_header(f"Random {k}-Group Designs (n={n_designs})")
 
     headers = ["Config", "N", "H(10%)", "CHI", "SD1", "SDC1", "PAG(4)", "PAG(6)"]
     widths = [20, 6, 10, 10, 10, 10, 10, 10]
@@ -575,7 +560,7 @@ def generate_random_k_group_designs(k: int = 5, n_designs: int = 10, seed: int =
     print("  * Note: Exact Probabilities are not shown for k>=5 due to computational cost")
 
 
-def comprehensive_random_study(n_per_category: int = 5, seed: int = 42):
+def comprehensive_random_study(n_per_category: int = 5):
     """
     Comprehensive random study across different group configurations.
 
@@ -588,14 +573,9 @@ def comprehensive_random_study(n_per_category: int = 5, seed: int = 42):
     ----------
     n_per_category : int
         Number of random designs per category
-    seed : int
-        Random seed for reproducibility
     """
     print_header("Comprehensive Random Study")
-    print(f"Generating {n_per_category} random designs per category (seed={seed})")
-
-    random.seed(seed)
-    np.random.seed(seed)
+    print(f"Generating {n_per_category} random designs per category")
 
     all_results = []
 
@@ -707,12 +687,12 @@ def main():
     reproduce_tables_4_6_4_7()
 
     # Random designs
-    generate_random_three_group_designs(n_designs=10, seed=42)
-    generate_random_four_group_designs(n_designs=10, seed=42)
-    generate_random_k_group_designs(k=5, n_designs=10, seed=42)
+    generate_random_three_group_designs(n_designs=10)
+    generate_random_four_group_designs(n_designs=10)
+    generate_random_k_group_designs(k=5, n_designs=10)
 
     # Comprehensive study
-    comprehensive_random_study(n_per_category=5, seed=123)
+    comprehensive_random_study(n_per_category=5)
 
     print("\n" + "=" * 90)
     print("All tables reproduced successfully!")
