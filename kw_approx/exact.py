@@ -21,6 +21,7 @@ from typing import List, Tuple, Dict, Optional
 from functools import lru_cache
 from collections import defaultdict
 import warnings
+import gc
 
 
 class ExactDistribution:
@@ -64,14 +65,21 @@ class ExactDistribution:
         """Check if exact computation is feasible."""
         # Rough estimate of number of permutations
         from math import factorial, comb
-        
+
         # Number of distinct rank sum tuples is bounded by product of ranges
         # For k groups, this is approximately O(N^k)
-        
-        if self.N > 30:
+
+        if self.N > 15:
+            if self.N <= 30:
+                recommended = "pam6 (polynomial adjusted gamma, degree=6)"
+            elif self.N <= 100:
+                recommended = "pam (polynomial adjusted gamma, degree=4)"
+            else:
+                recommended = "saddlepoint"
+            
             warnings.warn(
-                f"Exact computation for N={self.N} may be very slow or infeasible. "
-                f"Consider using approximation methods instead.",
+                f"[Paper Recommendation] N={self.N} > 15: Consider using {recommended} instead of exact. "
+                f"Exact computation may be slow or use excessive memory.",
                 RuntimeWarning
             )
     
@@ -166,8 +174,8 @@ class ExactDistribution:
         k = self.k
         N = self.N
         
-        # Recursive function with memoization
-        @lru_cache(maxsize=None)
+        # Recursive function with memoization (limited cache to prevent memory explosion)
+        @lru_cache(maxsize=100000)
         def count_ways(r_tuple: Tuple[int, ...], n_tuple: Tuple[int, ...]) -> int:
             """
             Count ways to achieve rank sums r_tuple given remaining sample sizes n_tuple.
@@ -254,7 +262,11 @@ class ExactDistribution:
             ways = count_ways(r_tuple, tuple(n))
             if ways > 0:
                 result[r_tuple] = ways
-        
+
+        # Clear cache to free memory
+        count_ways.cache_clear()
+        gc.collect()
+
         return result
     
     @property
