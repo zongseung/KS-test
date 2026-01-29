@@ -13,3 +13,7 @@ wheels/
 
 # 
 *setup
+
+*.txt
+
+*.ipynb
