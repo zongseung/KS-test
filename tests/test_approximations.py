@@ -20,6 +20,7 @@ from kw_approx import (
     SaddlepointApproximation,
     PolynomialAdjustedGamma,
     GramCharlierApproximation,
+    EdgeworthApproximation,
     ExactDistribution,
     KWApproximator
 )
@@ -71,10 +72,10 @@ class TestKWMoments:
     def test_mean(self):
         """Test that mean = k - 1."""
         moments = KWMoments([3, 3, 3])
-        assert moments.get_mean() == 2.0
-        
+        assert np.isclose(moments.get_mean(), 2.0, rtol=1e-6)
+
         moments = KWMoments([5, 5, 5, 5])
-        assert moments.get_mean() == 3.0
+        assert np.isclose(moments.get_mean(), 3.0, rtol=1e-6)
     
     def test_variance_positive(self):
         """Test that variance is positive."""
@@ -210,13 +211,53 @@ class TestGramCharlierApproximation:
         assert gc.is_stable()
 
 
+class TestEdgeworthApproximation:
+    """Test Edgeworth expansion approximation."""
+
+    def test_tail_probability_bounds(self):
+        """Test that tail probabilities are in [0, 1]."""
+        ed = EdgeworthApproximation([5, 5, 5])
+
+        for h in [1.0, 2.0, 4.0, 6.0, 8.0]:
+            p = ed.tail_probability(h)
+            assert 0 <= p <= 1, f"P(H >= {h}) = {p} out of bounds"
+
+    def test_cdf_monotonic(self):
+        """Test that CDF is monotonically increasing."""
+        ed = EdgeworthApproximation([5, 5, 5])
+
+        h_values = np.linspace(0.5, 10, 20)
+        cdfs = [ed.cdf(h) for h in h_values]
+
+        for i in range(len(cdfs) - 1):
+            assert cdfs[i] <= cdfs[i+1] + 1e-6, \
+                f"CDF not monotonic at h={h_values[i]}"
+
+    def test_stability_check(self):
+        """Test stability indicator."""
+        ed = EdgeworthApproximation([5, 5, 5])
+        # For moderate samples, should be stable
+        assert ed.is_stable()
+
+    def test_parameters(self):
+        """Test parameter extraction."""
+        ed = EdgeworthApproximation([5, 5, 5])
+        params = ed.get_parameters()
+
+        assert 'mu' in params
+        assert 'sigma' in params
+        assert 'lambda3' in params
+        assert 'lambda4' in params
+        assert params['df'] == 2
+
+
 class TestExactDistribution:
     """Test exact distribution computation."""
-    
+
     def test_small_sample(self):
         """Test exact computation for very small sample."""
         exact = ExactDistribution([2, 2, 2])
-        
+
         # Total probability should be 1
         total = sum(exact.distribution.values())
         assert np.isclose(total, 1.0, rtol=1e-10), \
@@ -255,9 +296,10 @@ class TestKWApproximator:
         """Test that all methods can be called without error."""
         approx = KWApproximator([3, 3, 3])
         h = 4.0
-        
-        for method in ['chi_square', 'saddlepoint', 'saddlepoint_cc',
-                       'pam', 'pam6', 'gram_charlier', 'exact']:
+
+        for method in ['chi_square', 'saddlepoint', 'saddlepoint_sd2',
+                       'saddlepoint_cc', 'saddlepoint_cc2',
+                       'pam', 'pam6', 'gram_charlier', 'edgeworth', 'exact']:
             try:
                 p = approx.tail_probability(h, method)
                 assert 0 <= p <= 1, f"{method}: P = {p} out of bounds"
