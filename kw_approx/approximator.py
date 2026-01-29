@@ -18,7 +18,9 @@ from .moments import KWMoments
 from .saddlepoint import SaddlepointApproximation
 from .pam import PolynomialAdjustedGamma
 from .gram_charlier import GramCharlierApproximation
+from .edgeworth import EdgeworthApproximation
 from .exact import ExactDistribution
+from .simulation import MonteCarloSimulation
 
 
 class KWApproximator:
@@ -54,14 +56,18 @@ class KWApproximator:
     """
     
     AVAILABLE_METHODS = [
-        'chi_square',      # Traditional chi-square approximation
-        'saddlepoint',     # Saddlepoint (SD1) - Lugannani-Rice
+        'chi_square',      # Traditional chi-square approximation (CHI)
+        'saddlepoint',     # Saddlepoint SD1 (ER1 CGF) - Lugannani-Rice
+        'saddlepoint_sd2', # Saddlepoint SD2 (ER2 CGF) - Lugannani-Rice
         'saddlepoint_cc',  # Saddlepoint with continuity correction (SDC1)
-        'saddlepoint_gamma',  # Gamma-based saddlepoint (Wood et al.)
-        'pam',             # Polynomial adjusted gamma (default degree 4)
-        'pam6',            # Polynomial adjusted gamma (degree 6)
-        'gram_charlier',   # Gram-Charlier Type A
-        'exact'            # Exact combinatorial (small samples only)
+        'saddlepoint_cc2', # Saddlepoint SD2 with continuity correction (SDC2)
+        'saddlepoint_gamma',  # Gamma-based saddlepoint (Wood et al., 1993)
+        'pam',             # Polynomial adjusted gamma PAG (degree 4)
+        'pam6',            # Polynomial adjusted gamma PAG (degree 6)
+        'gram_charlier',   # Gram-Charlier Type A (GC-A)
+        'edgeworth',       # Edgeworth expansion (ED)
+        'exact',           # Exact combinatorial (small samples only)
+        'simulation'       # Monte Carlo simulation (for larger samples)
     ]
     
     def __init__(self, sample_sizes: List[int]):
@@ -76,19 +82,29 @@ class KWApproximator:
         # Lazy initialization of approximation methods
         self._methods = {}
         self._exact = None
+        self._simulation = None
+        self._n_simulations = 10000  # Default simulation count
     
     def _get_method(self, method: str):
         """Get or initialize an approximation method."""
         if method in self._methods:
             return self._methods[method]
-        
+
         if method == 'saddlepoint':
             self._methods[method] = SaddlepointApproximation(
                 self.sample_sizes, cgf_method='ER1'
             )
+        elif method == 'saddlepoint_sd2':
+            self._methods[method] = SaddlepointApproximation(
+                self.sample_sizes, cgf_method='ER2'
+            )
         elif method == 'saddlepoint_cc':
             self._methods[method] = SaddlepointApproximation(
                 self.sample_sizes, cgf_method='ER1'
+            )
+        elif method == 'saddlepoint_cc2':
+            self._methods[method] = SaddlepointApproximation(
+                self.sample_sizes, cgf_method='ER2'
             )
         elif method == 'saddlepoint_gamma':
             self._methods[method] = SaddlepointApproximation(
@@ -104,6 +120,8 @@ class KWApproximator:
             )
         elif method == 'gram_charlier':
             self._methods[method] = GramCharlierApproximation(self.sample_sizes)
+        elif method == 'edgeworth':
+            self._methods[method] = EdgeworthApproximation(self.sample_sizes)
         elif method == 'exact':
             if self._exact is None:
                 self._exact = ExactDistribution(self.sample_sizes)
@@ -111,23 +129,29 @@ class KWApproximator:
         elif method == 'chi_square':
             # Chi-square doesn't need a special object
             self._methods[method] = None
+        elif method == 'simulation':
+            if self._simulation is None:
+                self._simulation = MonteCarloSimulation(
+                    self.sample_sizes, n_simulations=self._n_simulations
+                )
+            self._methods[method] = self._simulation
         else:
             raise ValueError(f"Unknown method: {method}. "
                            f"Available: {self.AVAILABLE_METHODS}")
-        
+
         return self._methods[method]
     
     def tail_probability(self, h: float, method: str = 'pam') -> float:
         """
         Compute tail probability P(H >= h) using specified method.
-        
+
         Parameters
         ----------
         h : float
             H statistic value
         method : str
             Approximation method to use
-            
+
         Returns
         -------
         float
@@ -135,31 +159,47 @@ class KWApproximator:
         """
         if method == 'chi_square':
             return self.kw.chi_square_approximation(h)
-        
+
         elif method == 'saddlepoint':
             sp = self._get_method(method)
             return sp.tail_probability_lr(h, continuity_correction=False)
-        
+
+        elif method == 'saddlepoint_sd2':
+            sp = self._get_method(method)
+            return sp.tail_probability_lr(h, continuity_correction=False)
+
         elif method == 'saddlepoint_cc':
             sp = self._get_method('saddlepoint')
             return sp.tail_probability_lr(h, continuity_correction=True)
-        
+
+        elif method == 'saddlepoint_cc2':
+            sp = self._get_method('saddlepoint_sd2')
+            return sp.tail_probability_lr(h, continuity_correction=True)
+
         elif method == 'saddlepoint_gamma':
             sp = self._get_method('saddlepoint')
             return sp.tail_probability_gamma_based(h)
-        
+
         elif method in ['pam', 'pam6']:
             pam = self._get_method(method)
             return pam.tail_probability(h)
-        
+
         elif method == 'gram_charlier':
             gc = self._get_method(method)
             return gc.tail_probability(h)
-        
+
+        elif method == 'edgeworth':
+            ed = self._get_method(method)
+            return ed.tail_probability(h)
+
         elif method == 'exact':
             exact = self._get_method(method)
             return exact.tail_probability(h)
-        
+
+        elif method == 'simulation':
+            sim = self._get_method(method)
+            return sim.tail_probability(h)
+
         else:
             raise ValueError(f"Unknown method: {method}")
     
@@ -184,14 +224,14 @@ class KWApproximator:
     def pdf(self, h: float, method: str = 'pam') -> float:
         """
         Compute approximate PDF at h using specified method.
-        
+
         Parameters
         ----------
         h : float
             H statistic value
         method : str
             Approximation method to use
-            
+
         Returns
         -------
         float
@@ -199,40 +239,47 @@ class KWApproximator:
         """
         if method == 'chi_square':
             return stats.chi2.pdf(h, self.k - 1)
-        
-        elif method in ['saddlepoint', 'saddlepoint_cc']:
-            sp = self._get_method('saddlepoint')
-            cc = method == 'saddlepoint_cc'
+
+        elif method in ['saddlepoint', 'saddlepoint_cc', 'saddlepoint_sd2', 'saddlepoint_cc2']:
+            if 'sd2' in method:
+                sp = self._get_method('saddlepoint_sd2')
+            else:
+                sp = self._get_method('saddlepoint')
+            cc = 'cc' in method
             return sp.density_approximation(h, continuity_correction=cc)
-        
+
         elif method in ['pam', 'pam6']:
             pam = self._get_method(method)
             return pam.pdf(h)
-        
+
         elif method == 'gram_charlier':
             gc = self._get_method(method)
             return gc.pdf(h)
-        
+
+        elif method == 'edgeworth':
+            ed = self._get_method(method)
+            return ed.pdf(h)
+
         elif method == 'exact':
             exact = self._get_method(method)
             return exact.pmf(h)
-        
+
         else:
             raise ValueError(f"Unknown method: {method}")
     
     def critical_value(self, alpha: float, method: str = 'pam') -> float:
         """
         Compute critical value for significance level alpha.
-        
+
         Finds c such that P(H >= c) = alpha.
-        
+
         Parameters
         ----------
         alpha : float
             Significance level (e.g., 0.05, 0.10)
         method : str
             Approximation method to use
-            
+
         Returns
         -------
         float
@@ -240,33 +287,40 @@ class KWApproximator:
         """
         if method == 'chi_square':
             return stats.chi2.ppf(1 - alpha, self.k - 1)
-        
-        elif method in ['saddlepoint', 'saddlepoint_cc']:
-            sp = self._get_method('saddlepoint')
-            cc = method == 'saddlepoint_cc'
+
+        elif method in ['saddlepoint', 'saddlepoint_cc', 'saddlepoint_sd2', 'saddlepoint_cc2']:
+            if 'sd2' in method:
+                sp = self._get_method('saddlepoint_sd2')
+            else:
+                sp = self._get_method('saddlepoint')
+            cc = 'cc' in method
             return sp.critical_value(alpha, continuity_correction=cc)
-        
+
         elif method in ['pam', 'pam6']:
             pam = self._get_method(method)
             return pam.critical_value(alpha)
-        
+
         elif method == 'gram_charlier':
             gc = self._get_method(method)
             return gc.critical_value(alpha)
-        
+
+        elif method == 'edgeworth':
+            ed = self._get_method(method)
+            return ed.critical_value(alpha)
+
         elif method == 'exact':
             exact = self._get_method(method)
             cv, exact_alpha = exact.critical_value(alpha)
             return cv
-        
+
         else:
             raise ValueError(f"Unknown method: {method}")
     
-    def compare_methods(self, h: float, 
+    def compare_methods(self, h: float,
                        methods: Optional[List[str]] = None) -> Dict[str, float]:
         """
         Compare tail probabilities across multiple methods.
-        
+
         Parameters
         ----------
         h : float
@@ -274,19 +328,20 @@ class KWApproximator:
         methods : List[str], optional
             Methods to compare. If None, uses all available methods
             (excluding 'exact' for large samples)
-            
+
         Returns
         -------
         Dict[str, float]
             Dictionary mapping method names to tail probabilities
         """
         if methods is None:
-            methods = ['chi_square', 'saddlepoint', 'saddlepoint_cc',
-                      'pam', 'pam6', 'gram_charlier']
+            methods = ['chi_square', 'saddlepoint', 'saddlepoint_sd2',
+                      'saddlepoint_cc', 'saddlepoint_cc2',
+                      'pam', 'pam6', 'gram_charlier', 'edgeworth']
             # Only include exact for small samples
             if self.N <= 20:
                 methods.append('exact')
-        
+
         results = {}
         for method in methods:
             try:
@@ -294,32 +349,32 @@ class KWApproximator:
             except Exception as e:
                 results[method] = None
                 warnings.warn(f"Method {method} failed: {e}")
-        
+
         return results
     
     def compare_critical_values(self, alpha: float,
                                methods: Optional[List[str]] = None) -> Dict[str, float]:
         """
         Compare critical values across multiple methods.
-        
+
         Parameters
         ----------
         alpha : float
             Significance level
         methods : List[str], optional
             Methods to compare
-            
+
         Returns
         -------
         Dict[str, float]
             Dictionary mapping method names to critical values
         """
         if methods is None:
-            methods = ['chi_square', 'saddlepoint', 'saddlepoint_cc',
-                      'pam', 'pam6', 'gram_charlier']
+            methods = ['chi_square', 'saddlepoint', 'saddlepoint_sd2',
+                      'saddlepoint_cc', 'pam', 'pam6', 'gram_charlier', 'edgeworth']
             if self.N <= 20:
                 methods.append('exact')
-        
+
         results = {}
         for method in methods:
             try:
@@ -327,7 +382,7 @@ class KWApproximator:
             except Exception as e:
                 results[method] = None
                 warnings.warn(f"Method {method} failed: {e}")
-        
+
         return results
     
     def recommend_method(self) -> str:
@@ -353,7 +408,7 @@ class KWApproximator:
                       alpha_values: Optional[List[float]] = None) -> Dict:
         """
         Generate comparison tables similar to those in the paper.
-        
+
         Parameters
         ----------
         h_values : List[float], optional
@@ -362,15 +417,15 @@ class KWApproximator:
             Methods to include
         alpha_values : List[float], optional
             Significance levels for critical values
-            
+
         Returns
         -------
         Dict
             Dictionary with 'probabilities' and 'critical_values' tables
         """
         if methods is None:
-            methods = ['chi_square', 'saddlepoint', 'saddlepoint_cc',
-                      'pam', 'pam6', 'gram_charlier']
+            methods = ['chi_square', 'saddlepoint', 'saddlepoint_sd2',
+                      'saddlepoint_cc', 'pam', 'pam6', 'gram_charlier', 'edgeworth']
             if self.N <= 20:
                 methods.append('exact')
         
@@ -454,16 +509,31 @@ def quick_test(sample_sizes: List[int], h: float, alpha: float = 0.10) -> None:
     alpha : float
         Significance level for critical values
     """
+    N = sum(sample_sizes)
+    k = len(sample_sizes)
+    
     print(f"=" * 60)
     print(f"Kruskal-Wallis Approximation Comparison")
     print(f"=" * 60)
     print(f"Sample sizes: {sample_sizes}")
-    print(f"k = {len(sample_sizes)}, N = {sum(sample_sizes)}")
+    print(f"k = {k}, N = {N}")
     print(f"H value: {h}")
     print(f"Significance level: {alpha}")
     print(f"-" * 60)
     
     approx = KWApproximator(sample_sizes)
+    recommended = approx.recommend_method()
+    
+    # Method selection based on paper recommendations
+    print(f"\n[Paper-Recommended Method Selection]")
+    if N <= 15:
+        print(f"  N={N} <= 15: Using exact (exact distribution) for computation.")
+    elif N <= 30:
+        print(f"  N={N} > 15: Using pam6 (polynomial adjusted gamma, degree=6) for computation.")
+    elif N <= 100:
+        print(f"  N={N} > 30: Using pam (polynomial adjusted gamma, degree=4) for computation.")
+    else:
+        print(f"  N={N} > 100: Using saddlepoint for computation.")
     
     # Summary
     summary = approx.summary()
@@ -472,7 +542,7 @@ def quick_test(sample_sizes: List[int], h: float, alpha: float = 0.10) -> None:
     print(f"  Var(H):      {summary['var_H']:.6f}")
     print(f"  Skewness:    {summary['skewness']:.6f}")
     print(f"  Kurtosis:    {summary['kurtosis']:.6f}")
-    print(f"  Recommended: {summary['recommended_method']}")
+    print(f"  Recommended: {recommended}")
     
     # Tail probabilities
     print(f"\nTail Probabilities P(H >= {h}):")
