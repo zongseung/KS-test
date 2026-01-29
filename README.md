@@ -192,7 +192,24 @@ $$f_{GC}(h) \approx \phi\left(\frac{h-\mu}{\sigma}\right)\left[1 + \frac{\gamma_
 
 ### 5. Exact Distribution
 
-Iman et al. (1975)의 재귀 알고리즘을 사용한 정확 분포 계산입니다. 소표본(N ≤ 20)에서만 실용적입니다.
+Iman et al. (1975)의 재귀 알고리즘을 사용한 정확 분포 계산입니다. 소표본(N ≤ 15)에서만 실용적입니다.
+
+### 6. Monte Carlo Simulation
+
+정확 분포 계산이 불가능한 대표본에서 귀무분포를 시뮬레이션합니다:
+
+```python
+from kw_approx import MonteCarloSimulation
+
+# 10,000회 시뮬레이션
+sim = MonteCarloSimulation([5, 5, 5], n_simulations=10000, seed=42)
+
+# 꼬리확률 추정
+p = sim.tail_probability(4.5)
+
+# 임계값 추정
+cv, actual_alpha = sim.critical_value(0.10)
+```
 
 ## 모멘트와 큐뮬런트
 
@@ -227,6 +244,7 @@ Iman et al. (1975)의 재귀 알고리즘을 사용한 정확 분포 계산입�
 | `pam` | PAM (degree 4) | PAG(4) |
 | `pam6` | PAM (degree 6) | PAG(6) |
 | `exact` | 정확 분포 | E-P |
+| `simulation` | Monte Carlo 시뮬레이션 | Simulation |
 
 ## 패키지 구조
 
@@ -287,11 +305,19 @@ classDiagram
     KWApproximator --> EdgeworthApproximation
     KWApproximator --> GramCharlierApproximation
     KWApproximator --> ExactDistribution
+    KWApproximator --> MonteCarloSimulation
     SaddlepointApproximation --> KWMoments
     PolynomialAdjustedGamma --> KWMoments
     EdgeworthApproximation --> KWMoments
     GramCharlierApproximation --> KWMoments
 ```
+
+    class MonteCarloSimulation {
+        +n_simulations: int
+        +tail_probability(h)
+        +critical_value(alpha)
+        +summary()
+    }
 
 ### 파일 구조
 
@@ -305,6 +331,7 @@ kw_approx/
 ├── gram_charlier.py      # Gram-Charlier 급수 근사 (GC-A)
 ├── edgeworth.py          # Edgeworth 전개 (ED)
 ├── exact.py              # 정확 분포 (소표본)
+├── simulation.py         # Monte Carlo 시뮬레이션
 └── approximator.py       # 통합 인터페이스
 
 examples/
@@ -324,7 +351,8 @@ from kw_approx import (
     SaddlepointApproximation,
     GramCharlierApproximation,
     EdgeworthApproximation,
-    ExactDistribution
+    ExactDistribution,
+    MonteCarloSimulation
 )
 
 sample_sizes = [3, 3, 3]
@@ -351,6 +379,10 @@ print(f"Gram-Charlier: {gc.sf(4.62):.6f}")
 # Exact (소표본에서만)
 exact = ExactDistribution(sample_sizes)
 print(f"Exact: {exact.sf(4.62):.6f}")
+
+# Monte Carlo Simulation (대표본에서)
+sim = MonteCarloSimulation(sample_sizes, n_simulations=10000, seed=42)
+print(f"Simulation: {sim.tail_probability(4.62):.6f}")
 ```
 
 ### 임계값 계산
@@ -399,12 +431,14 @@ for method in ['exact', 'chi_square', 'saddlepoint', 'pam6']:
 
 ## 방법별 권장 사용 상황
 
-| 표본 크기 (N) | 권장 방법 | 비고 |
-|--------------|----------|------|
-| N ≤ 15 | `exact` | 정확 분포 계산 가능 |
-| 15 < N ≤ 30 | `pam6` | PAM (degree 6) 가장 정확 |
-| 30 < N ≤ 100 | `pam` | PAM (degree 4) 충분히 정확 |
-| N > 100 | `saddlepoint` | 새들포인트 효율적 |
+| 표본 크기 (N) | 그룹 수 (k) | 권장 방법 | 비고 |
+|--------------|-------------|----------|------|
+| N ≤ 15 | k ≤ 3 | `exact` | 정확 분포 계산 가능 |
+| N ≤ 13 | k = 4 | `exact` | 정확 분포 계산 가능 |
+| N ≤ 10 | k ≥ 5 | `exact` | 정확 분포 계산 가능 |
+| 15 < N ≤ 50 | - | `pam6` | PAM (degree 6) 가장 정확 |
+| N > 50 | - | `saddlepoint` | 새들포인트 효율적 |
+| N > 임계값 | - | `simulation` | 정확 분포 대신 Monte Carlo |
 
 ## 예제 실행
 
