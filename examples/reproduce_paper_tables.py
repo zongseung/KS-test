@@ -58,15 +58,15 @@ def get_exact_critical_value(sample_sizes: list, alpha: float):
         return None, None
 
 
-def get_reference_probability(approx: KWApproximator, h: float, N: int, k: int, 
+def get_reference_probability(approx: KWApproximator, h: float, N: int, k: int,
                                n_simulations: int = 10000) -> tuple:
     """
     Get reference probability (exact or simulation-based).
-    
+
     Following paper methodology:
     - For small N: use exact distribution
     - For large N: use Monte Carlo simulation
-    
+
     Returns:
         (probability, is_simulation_based)
     """
@@ -77,20 +77,89 @@ def get_reference_probability(approx: KWApproximator, h: float, N: int, k: int,
         limit_N = 13
     else:
         limit_N = 10
-    
+
     if N <= limit_N:
         # Use exact
         try:
             return approx.tail_probability(h, 'exact'), False
         except:
             pass
-    
+
     # Use simulation for large N
     try:
         sim = MonteCarloSimulation(approx.sample_sizes, n_simulations=n_simulations)
         return sim.tail_probability(h), True
     except:
         return None, False
+
+
+def get_reference_critical_value(sample_sizes: list, alpha: float,
+                                  n_simulations: int = 10000,
+                                  seed: int = None) -> tuple:
+    """
+    Get reference critical value following paper methodology.
+
+    The critical value H(alpha) should be determined from a reference distribution:
+    1. Exact distribution (for small N)
+    2. Monte Carlo simulation (for large N)
+    3. Chi-square (fallback only)
+
+    IMPORTANT: PAM6 or other approximations should NEVER be used as reference
+    for determining critical values, as this causes self-calibration issues.
+
+    Parameters
+    ----------
+    sample_sizes : list
+        Sample sizes for each group
+    alpha : float
+        Significance level (e.g., 0.10, 0.05)
+    n_simulations : int
+        Number of Monte Carlo simulations if needed
+    seed : int, optional
+        Random seed for reproducibility
+
+    Returns
+    -------
+    tuple : (h_ref, ref_alpha, source)
+        h_ref : float - Reference critical value
+        ref_alpha : float - Actual tail probability at h_ref
+        source : str - "exact", "simulation", or "chi_square"
+    """
+    from scipy.stats import chi2
+
+    k = len(sample_sizes)
+    N = sum(sample_sizes)
+
+    # Determine threshold based on k (following paper recommendations)
+    if k <= 3:
+        limit_N = 15
+    elif k == 4:
+        limit_N = 13
+    else:
+        limit_N = 10  # Very strict for k >= 5
+
+    # Try exact distribution first (for small N)
+    if N <= limit_N:
+        try:
+            exact = ExactDistribution(sample_sizes)
+            h_ref, ref_alpha = exact.critical_value(alpha)
+            return h_ref, ref_alpha, "exact"
+        except Exception as e:
+            pass  # Fall through to simulation
+
+    # Use Monte Carlo simulation for larger N
+    try:
+        sim = MonteCarloSimulation(sample_sizes, n_simulations=n_simulations, seed=seed)
+        h_ref, ref_alpha = sim.critical_value(alpha)
+        return h_ref, ref_alpha, "simulation"
+    except Exception as e:
+        pass  # Fall through to chi-square
+
+    # Fallback to chi-square (last resort)
+    df = k - 1
+    h_ref = chi2.ppf(1 - alpha, df)
+    ref_alpha = 1 - chi2.cdf(h_ref, df)  # Should be very close to alpha
+    return h_ref, ref_alpha, "chi_square"
 
 
 def reproduce_table_4_1():
@@ -133,6 +202,10 @@ def reproduce_tables_4_2_4_3():
     """
     Reproduce Tables 4.2-4.3: Three groups, increasing n, alpha = 0.10 and 0.05
 
+    Following paper methodology:
+    - Critical value H is determined from REFERENCE distribution (exact or simulation)
+    - All approximation methods are compared at the SAME reference H
+
     Generate balanced three-group designs with increasing sample sizes.
     """
     print_header("Tables 4.2-4.3: Three groups, increasing n, alpha = 0.10 and 0.05")
@@ -143,11 +216,11 @@ def reproduce_tables_4_2_4_3():
     for alpha in [0.10, 0.05]:
         print(f"\n--- alpha = {alpha} ---\n")
 
-        headers = ["n1,n2,n3", "N", "E-Q", "E-P", "CHI", "SD1", "SDC1", "ED", "PAG(4)", "PAG(6)"]
-        widths = [12, 6, 10, 10, 10, 10, 10, 10, 10, 10]
+        headers = ["n1,n2,n3", "N", "E-Q", "E-P", "SRC", "CHI", "SD1", "SDC1", "ED", "PAG(4)", "PAG(6)"]
+        widths = [12, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10]
 
         print_table_row(headers, widths)
-        print("-" * 98)
+        print("-" * 110)
 
         for n in n_values:
             sample_sizes = [n, n, n]
@@ -155,25 +228,10 @@ def reproduce_tables_4_2_4_3():
 
             approx = KWApproximator(sample_sizes)
 
-            # Get critical value (use exact only for N <= 15 per paper recommendation)
-            try:
-                if N <= 15:
-                    cv, exact_alpha = get_exact_critical_value(sample_sizes, alpha)
-                    if cv is None:
-                        cv = approx.critical_value(alpha, 'pam6')
-                else:
-                    # N > 15: Use pam6 instead of exact (paper recommendation)
-                    cv = approx.critical_value(alpha, 'pam6')
-                    exact_alpha = None
-            except:
-                cv = approx.critical_value(alpha, 'chi_square')
-                exact_alpha = None
+            # Get REFERENCE critical value (exact or simulation - NEVER pam6!)
+            H, ref_alpha, source = get_reference_critical_value(sample_sizes, alpha, n_simulations=10000)
 
-            H = cv if cv else approx.critical_value(alpha, 'chi_square')
-
-            # Compute reference probability (exact for small N, simulation for large N)
-            ref_p, is_sim = get_reference_probability(approx, H, N, len(sample_sizes))
-
+            # Compute all approximation tail probabilities at the same reference H
             chi = approx.tail_probability(H, 'chi_square')
             sd1 = approx.tail_probability(H, 'saddlepoint')
             sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
@@ -182,17 +240,13 @@ def reproduce_tables_4_2_4_3():
             pag6 = approx.tail_probability(H, 'pam6')
 
             config = f"{n},{n},{n}"
-            # Add marker for simulation-based values
-            if ref_p is not None:
-                ep_label = f"{ref_p:.6f}" if not is_sim else f"{ref_p:.6f}*"
-            else:
-                ep_label = None
-            values = [config, N, H, ep_label, chi, sd1, sdc1, ed, pag4, pag6]
+            # Source indicator: E=exact, S=simulation, C=chi-square
+            src_label = {"exact": "E", "simulation": "S", "chi_square": "C"}[source]
+            values = [config, N, H, ref_alpha, src_label, chi, sd1, sdc1, ed, pag4, pag6]
             print_table_row(values, widths)
 
-        print("-" * 98)
-        if any(n * 3 > 15 for n in n_values):
-            print("  * E-P column: simulation-based (10,000 iterations) for N > 15")
+        print("-" * 110)
+        print("  SRC: E=Exact, S=Simulation (10,000 iterations), C=Chi-square")
 
 
 def reproduce_table_4_4():
@@ -285,6 +339,10 @@ def reproduce_tables_4_6_4_7():
     """
     Reproduce Tables 4.6-4.7: Additional four-group designs, alpha = 0.10 and 0.05
 
+    Following paper methodology:
+    - Critical value H is determined from REFERENCE distribution (exact or simulation)
+    - All approximation methods are compared at the SAME reference H
+
     Generate various unbalanced four-group designs.
     """
     print_header("Tables 4.6-4.7: Additional four-group designs, alpha = 0.10 and 0.05")
@@ -304,37 +362,20 @@ def reproduce_tables_4_6_4_7():
     for alpha in [0.10, 0.05]:
         print(f"\n--- alpha = {alpha} ---\n")
 
-        headers = ["Config", "N", "E-Q", "E-P", "CHI", "SD1", "SDC1", "PAG(4)", "PAG(6)"]
-        widths = [14, 6, 10, 10, 10, 10, 10, 10, 10]
+        headers = ["Config", "N", "E-Q", "E-P", "SRC", "CHI", "SD1", "SDC1", "PAG(4)", "PAG(6)"]
+        widths = [14, 6, 10, 10, 6, 10, 10, 10, 10, 10]
 
         print_table_row(headers, widths)
-        print("-" * 90)
+        print("-" * 102)
 
         for sample_sizes in configs:
             N = sum(sample_sizes)
             approx = KWApproximator(sample_sizes)
 
-            # Determine threshold for exact computation
-            # For k=4, N=15 yields ~12.6 million combinations, which is too slow.
-            # We use a stricter threshold (N<=13) for 4 or more groups.
-            limit_N = 15 if len(sample_sizes) <= 3 else 13
+            # Get REFERENCE critical value (exact or simulation - NEVER pam6!)
+            H, ref_alpha, source = get_reference_critical_value(sample_sizes, alpha, n_simulations=10000)
 
-            # Get critical value (use exact only for small N)
-            try:
-                if N <= limit_N:
-                    cv, _ = get_exact_critical_value(sample_sizes, alpha)
-                    if cv is None:
-                        cv = approx.critical_value(alpha, 'pam6')
-                else:
-                    cv = approx.critical_value(alpha, 'pam6')
-            except:
-                cv = approx.critical_value(alpha, 'chi_square')
-
-            H = cv
-
-            # Compute reference probability (exact for small N, simulation for large N)
-            ref_p, is_sim = get_reference_probability(approx, H, N, len(sample_sizes))
-
+            # Compute all approximation tail probabilities at the same reference H
             chi = approx.tail_probability(H, 'chi_square')
             sd1 = approx.tail_probability(H, 'saddlepoint')
             sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
@@ -342,21 +383,23 @@ def reproduce_tables_4_6_4_7():
             pag6 = approx.tail_probability(H, 'pam6')
 
             config = ','.join(map(str, sample_sizes))
-            # Add marker for simulation-based values
-            if ref_p is not None:
-                ep_label = f"{ref_p:.6f}" if not is_sim else f"{ref_p:.6f}*"
-            else:
-                ep_label = None
-            values = [config, N, H, ep_label, chi, sd1, sdc1, pag4, pag6]
+            # Source indicator: E=exact, S=simulation, C=chi-square
+            src_label = {"exact": "E", "simulation": "S", "chi_square": "C"}[source]
+            values = [config, N, H, ref_alpha, src_label, chi, sd1, sdc1, pag4, pag6]
             print_table_row(values, widths)
 
-        print("-" * 90)
-        print("  * E-P column: simulation-based (10,000 iterations) for large N")
+        print("-" * 102)
+        print("  SRC: E=Exact, S=Simulation (10,000 iterations), C=Chi-square")
 
 
 def generate_random_three_group_designs(n_designs: int = 10):
     """
     Generate random three-group designs and compare approximation methods.
+
+    Following paper methodology:
+    - Critical value H is determined from REFERENCE distribution (exact or simulation)
+    - All approximation methods are compared at the SAME reference H
+    - This avoids self-calibration issues where PAG(6) = 0.10 always
 
     Parameters
     ----------
@@ -365,11 +408,11 @@ def generate_random_three_group_designs(n_designs: int = 10):
     """
     print_header(f"Random Three-Group Designs (n={n_designs})")
 
-    headers = ["Config", "N", "H(10%)", "E-P", "CHI", "SD1", "SDC1", "PAG(4)", "PAG(6)"]
-    widths = [14, 6, 10, 10, 10, 10, 10, 10, 10]
+    headers = ["Config", "N", "H(10%)", "E-P", "SRC", "CHI", "SD1", "SDC1", "PAG(4)", "PAG(6)"]
+    widths = [14, 6, 10, 10, 6, 10, 10, 10, 10, 10]
 
     print_table_row(headers, widths)
-    print("-" * 90)
+    print("-" * 102)
 
     for i in range(n_designs):
         # Generate random sample sizes (between 2 and 10 for each group)
@@ -381,22 +424,10 @@ def generate_random_three_group_designs(n_designs: int = 10):
 
         approx = KWApproximator(sample_sizes)
 
-        # Get critical value at alpha = 0.10
-        try:
-            if N <= 15:
-                cv, _ = get_exact_critical_value(sample_sizes, 0.10)
-                if cv is None:
-                    cv = approx.critical_value(0.10, 'pam6')
-            else:
-                cv = approx.critical_value(0.10, 'pam6')
-        except:
-            cv = approx.critical_value(0.10, 'chi_square')
+        # Get REFERENCE critical value (exact or simulation - NEVER pam6!)
+        H, ref_alpha, source = get_reference_critical_value(sample_sizes, 0.10, n_simulations=10000)
 
-        H = cv
-
-        # Compute reference probability (exact for small N, simulation for large N)
-        ref_p, is_sim = get_reference_probability(approx, H, N, len(sample_sizes))
-
+        # Compute all approximation tail probabilities at the same reference H
         chi = approx.tail_probability(H, 'chi_square')
         sd1 = approx.tail_probability(H, 'saddlepoint')
         sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
@@ -404,21 +435,24 @@ def generate_random_three_group_designs(n_designs: int = 10):
         pag6 = approx.tail_probability(H, 'pam6')
 
         config = f"{n1},{n2},{n3}"
-        # Add marker for simulation-based values
-        if ref_p is not None:
-            ep_label = f"{ref_p:.6f}" if not is_sim else f"{ref_p:.6f}*"
-        else:
-            ep_label = None
-        values = [config, N, H, ep_label, chi, sd1, sdc1, pag4, pag6]
+        # Source indicator: E=exact, S=simulation, C=chi-square
+        src_label = {"exact": "E", "simulation": "S", "chi_square": "C"}[source]
+        values = [config, N, H, ref_alpha, src_label, chi, sd1, sdc1, pag4, pag6]
         print_table_row(values, widths)
 
-    print("-" * 90)
-    print("  * E-P column: simulation-based (10,000 iterations) for N > 15")
+    print("-" * 102)
+    print("  SRC: E=Exact, S=Simulation (10,000 iterations), C=Chi-square")
+    print("  E-P: Reference tail probability at H(10%)")
 
 
 def generate_random_four_group_designs(n_designs: int = 10):
     """
     Generate random four-group designs and compare approximation methods.
+
+    Following paper methodology:
+    - Critical value H is determined from REFERENCE distribution (exact or simulation)
+    - All approximation methods are compared at the SAME reference H
+    - This avoids self-calibration issues where PAG(6) = 0.10 always
 
     Parameters
     ----------
@@ -427,11 +461,11 @@ def generate_random_four_group_designs(n_designs: int = 10):
     """
     print_header(f"Random Four-Group Designs (n={n_designs})")
 
-    headers = ["Config", "N", "H(10%)", "E-P", "CHI", "SD1", "SDC1", "PAG(4)", "PAG(6)"]
-    widths = [16, 6, 10, 10, 10, 10, 10, 10, 10]
+    headers = ["Config", "N", "H(10%)", "E-P", "SRC", "CHI", "SD1", "SDC1", "PAG(4)", "PAG(6)"]
+    widths = [16, 6, 10, 10, 6, 10, 10, 10, 10, 10]
 
     print_table_row(headers, widths)
-    print("-" * 92)
+    print("-" * 104)
 
     for i in range(n_designs):
         # Generate random sample sizes (between 2 and 8 for each group)
@@ -444,25 +478,10 @@ def generate_random_four_group_designs(n_designs: int = 10):
 
         approx = KWApproximator(sample_sizes)
 
-        # Use stricter threshold for k=4 (N<=13)
-        limit_N = 13
+        # Get REFERENCE critical value (exact or simulation - NEVER pam6!)
+        H, ref_alpha, source = get_reference_critical_value(sample_sizes, 0.10, n_simulations=10000)
 
-        # Get critical value at alpha = 0.10
-        try:
-            if N <= limit_N:
-                cv, _ = get_exact_critical_value(sample_sizes, 0.10)
-                if cv is None:
-                    cv = approx.critical_value(0.10, 'pam6')
-            else:
-                cv = approx.critical_value(0.10, 'pam6')
-        except:
-            cv = approx.critical_value(0.10, 'chi_square')
-
-        H = cv
-
-        # Compute reference probability (exact for small N, simulation for large N)
-        ref_p, is_sim = get_reference_probability(approx, H, N, len(sample_sizes))
-
+        # Compute all approximation tail probabilities at the same reference H
         chi = approx.tail_probability(H, 'chi_square')
         sd1 = approx.tail_probability(H, 'saddlepoint')
         sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
@@ -470,21 +489,24 @@ def generate_random_four_group_designs(n_designs: int = 10):
         pag6 = approx.tail_probability(H, 'pam6')
 
         config = f"{n1},{n2},{n3},{n4}"
-        # Add marker for simulation-based values
-        if ref_p is not None:
-            ep_label = f"{ref_p:.6f}" if not is_sim else f"{ref_p:.6f}*"
-        else:
-            ep_label = None
-        values = [config, N, H, ep_label, chi, sd1, sdc1, pag4, pag6]
+        # Source indicator: E=exact, S=simulation, C=chi-square
+        src_label = {"exact": "E", "simulation": "S", "chi_square": "C"}[source]
+        values = [config, N, H, ref_alpha, src_label, chi, sd1, sdc1, pag4, pag6]
         print_table_row(values, widths)
 
-    print("-" * 92)
-    print("  * E-P column: simulation-based (10,000 iterations) for N > 13")
+    print("-" * 104)
+    print("  SRC: E=Exact, S=Simulation (10,000 iterations), C=Chi-square")
+    print("  E-P: Reference tail probability at H(10%)")
 
 
 def generate_random_k_group_designs(k: int = 5, n_designs: int = 10):
     """
     Generate random k-group designs and compare approximation methods.
+
+    Following paper methodology:
+    - Critical value H is determined from REFERENCE distribution (exact or simulation)
+    - All approximation methods are compared at the SAME reference H
+    - This avoids self-calibration issues where PAG(6) = 0.10 always
 
     Parameters
     ----------
@@ -495,11 +517,11 @@ def generate_random_k_group_designs(k: int = 5, n_designs: int = 10):
     """
     print_header(f"Random {k}-Group Designs (n={n_designs})")
 
-    headers = ["Config", "N", "H(10%)", "CHI", "SD1", "SDC1", "PAG(4)", "PAG(6)"]
-    widths = [20, 6, 10, 10, 10, 10, 10, 10]
+    headers = ["Config", "N", "H(10%)", "E-P", "SRC", "CHI", "SD1", "SDC1", "PAG(4)", "PAG(6)"]
+    widths = [20, 6, 10, 10, 6, 10, 10, 10, 10, 10]
 
     print_table_row(headers, widths)
-    print("-" * 86)
+    print("-" * 108)
 
     for i in range(n_designs):
         # Generate random sample sizes (between 2 and 6 for each group)
@@ -508,33 +530,10 @@ def generate_random_k_group_designs(k: int = 5, n_designs: int = 10):
 
         approx = KWApproximator(sample_sizes)
 
-        # Determine safe threshold based on k
-        k_val = len(sample_sizes)
-        if k_val == 3:
-            limit_N = 15
-        elif k_val == 4:
-            limit_N = 13
-        else:
-            limit_N = 10  # Very strict for k>=5
+        # Get REFERENCE critical value (exact or simulation - NEVER pam6!)
+        H, ref_alpha, source = get_reference_critical_value(sample_sizes, 0.10, n_simulations=10000)
 
-        # Get critical value at alpha = 0.10
-        try:
-            if N <= limit_N:
-                cv, _ = get_exact_critical_value(sample_sizes, 0.10)
-                if cv is None:
-                    cv = approx.critical_value(0.10, 'pam6')
-            else:
-                cv = approx.critical_value(0.10, 'pam6')
-        except:
-            cv = approx.critical_value(0.10, 'chi_square')
-
-        H = cv
-
-        try:
-            exact_p = approx.tail_probability(H, 'exact') if N <= limit_N else None
-        except:
-            exact_p = None
-
+        # Compute all approximation tail probabilities at the same reference H
         chi = approx.tail_probability(H, 'chi_square')
         sd1 = approx.tail_probability(H, 'saddlepoint')
         sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
@@ -542,27 +541,24 @@ def generate_random_k_group_designs(k: int = 5, n_designs: int = 10):
         pag6 = approx.tail_probability(H, 'pam6')
 
         config = ','.join(map(str, sample_sizes))
-        # Add marker
-        ep_label = exact_p if exact_p is not None else (f"{pag6:.6f}*" if pag6 is not None else "N/A")
-        values = [config, N, H, chi, sd1, sdc1, pag4, pag6]
-        # Note: headers don't have E-P column in this function, so we don't need to add it, 
-        # but let's check headers first. 
-        # Ah wait, headers are ["Config", "N", "H(10%)", "CHI", "SD1", "SDC1", "PAG(4)", "PAG(6)"]
-        # So no E-P column. We don't need to calculate exact_p or add it to values.
-        # But for correctness let's keep exact_p calculation logic if headers were to change, 
-        # or just remove exact_p calculation to be faster. 
-        # Actually, let's just stick to the existing logic but safeguard the potentially expensive call.
-        
-        values = [config, N, H, chi, sd1, sdc1, pag4, pag6]
+        # Source indicator: E=exact, S=simulation, C=chi-square
+        src_label = {"exact": "E", "simulation": "S", "chi_square": "C"}[source]
+        values = [config, N, H, ref_alpha, src_label, chi, sd1, sdc1, pag4, pag6]
         print_table_row(values, widths)
 
-    print("-" * 86)
-    print("  * Note: Exact Probabilities are not shown for k>=5 due to computational cost")
+    print("-" * 108)
+    print("  SRC: E=Exact, S=Simulation (10,000 iterations), C=Chi-square")
+    print("  E-P: Reference tail probability at H(10%)")
 
 
 def comprehensive_random_study(n_per_category: int = 5):
     """
     Comprehensive random study across different group configurations.
+
+    Following paper methodology:
+    - Critical value H is determined from REFERENCE distribution (exact or simulation)
+    - All approximation methods are compared at the SAME reference H
+    - This avoids self-calibration issues where PAG(6) = 0.10 always
 
     Generates random designs for:
     - 3 groups (balanced and unbalanced)
@@ -619,56 +615,34 @@ def comprehensive_random_study(n_per_category: int = 5):
     # Now compute results for all
     print_header("Results for All Random Designs (alpha = 0.10)")
 
-    headers = ["Category", "Config", "N", "E-P", "CHI", "SD1", "PAG(6)"]
-    widths = [10, 18, 6, 10, 10, 10, 10]
+    headers = ["Category", "Config", "N", "E-P", "SRC", "CHI", "SD1", "PAG(6)"]
+    widths = [10, 18, 6, 10, 6, 10, 10, 10]
 
     print_table_row(headers, widths)
-    print("-" * 74)
+    print("-" * 86)
 
     for category, sample_sizes in all_results:
         N = sum(sample_sizes)
         approx = KWApproximator(sample_sizes)
 
-        # Determine safe threshold based on k
-        k_val = len(sample_sizes)
-        if k_val == 3:
-            limit_N = 15
-        elif k_val == 4:
-            limit_N = 13
-        else:
-            limit_N = 10  # Very strict for k>=5
+        # Get REFERENCE critical value (exact or simulation - NEVER pam6!)
+        H, ref_alpha, source = get_reference_critical_value(sample_sizes, 0.10, n_simulations=10000)
 
-        # Get critical value
-        try:
-            if N <= limit_N:
-                cv, _ = get_exact_critical_value(sample_sizes, 0.10)
-                if cv is None:
-                    cv = approx.critical_value(0.10, 'pam6')
-            else:
-                cv = approx.critical_value(0.10, 'pam6')
-        except:
-            cv = approx.critical_value(0.10, 'chi_square')
-
-        H = cv
-
-        try:
-            exact_p = approx.tail_probability(H, 'exact') if N <= limit_N else None
-        except:
-            exact_p = None
-
+        # Compute all approximation tail probabilities at the same reference H
         chi = approx.tail_probability(H, 'chi_square')
         sd1 = approx.tail_probability(H, 'saddlepoint')
         pag6 = approx.tail_probability(H, 'pam6')
 
         config = ','.join(map(str, sample_sizes))
-        # Add marker for approximate reference values
-        ep_label = exact_p if exact_p is not None else (f"{pag6:.6f}*" if pag6 is not None else "N/A")
-        
-        values = [category, config, N, ep_label, chi, sd1, pag6]
+        # Source indicator: E=exact, S=simulation, C=chi-square
+        src_label = {"exact": "E", "simulation": "S", "chi_square": "C"}[source]
+
+        values = [category, config, N, ref_alpha, src_label, chi, sd1, pag6]
         print_table_row(values, widths)
 
-    print("-" * 74)
-    print("  * E-P column shows pam6 values when exact computation is skipped due to large N/k")
+    print("-" * 86)
+    print("  SRC: E=Exact, S=Simulation (10,000 iterations), C=Chi-square")
+    print("  E-P: Reference tail probability at H(10%)")
 
 
 def main():
