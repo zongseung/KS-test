@@ -212,7 +212,7 @@ class TestGramCharlierApproximation:
 
 
 class TestEdgeworthApproximation:
-    """Test Edgeworth expansion approximation."""
+    """Test Edgeworth expansion approximation (chi-square based, Laguerre)."""
 
     def test_tail_probability_bounds(self):
         """Test that tail probabilities are in [0, 1]."""
@@ -227,6 +227,17 @@ class TestEdgeworthApproximation:
         ed = EdgeworthApproximation([5, 5, 5])
 
         h_values = np.linspace(0.5, 10, 20)
+        cdfs = [ed.cdf(h) for h in h_values]
+
+        for i in range(len(cdfs) - 1):
+            assert cdfs[i] <= cdfs[i+1] + 1e-6, \
+                f"CDF not monotonic at h={h_values[i]}"
+
+    def test_cdf_monotonic_small_sample(self):
+        """Test CDF monotonicity for small samples (3,3,3)."""
+        ed = EdgeworthApproximation([3, 3, 3])
+
+        h_values = np.linspace(0.5, 10, 30)
         cdfs = [ed.cdf(h) for h in h_values]
 
         for i in range(len(cdfs) - 1):
@@ -249,6 +260,52 @@ class TestEdgeworthApproximation:
         assert 'lambda3' in params
         assert 'lambda4' in params
         assert params['df'] == 2
+        assert 'coefficients' in params
+        assert 'alpha' in params
+
+    def test_ed_differs_from_gc_a(self):
+        """Test that ED (chi-square Laguerre) differs from GC-A (normal Hermite)."""
+        ed = EdgeworthApproximation([3, 3, 3])
+        gc = GramCharlierApproximation([3, 3, 3])
+
+        h = 4.62222
+        ed_p = ed.tail_probability(h)
+        gc_p = gc.tail_probability(h)
+
+        # They must be different (this was the original bug)
+        assert abs(ed_p - gc_p) > 0.001, \
+            f"ED ({ed_p:.6f}) should differ from GC-A ({gc_p:.6f})"
+
+    def test_ed_normal_based_matches_gc_a(self):
+        """Test that the legacy normal-based ED matches GC-A."""
+        ed = EdgeworthApproximation([3, 3, 3])
+        gc = GramCharlierApproximation([3, 3, 3])
+
+        h = 4.62222
+        ed_normal = 1.0 - ed.cdf_normal_based(h)
+        gc_p = gc.tail_probability(h)
+
+        assert np.isclose(ed_normal, gc_p, rtol=1e-4), \
+            f"Normal-based ED ({ed_normal:.6f}) should match GC-A ({gc_p:.6f})"
+
+    def test_ed_near_paper_value_333(self):
+        """Test ED for (3,3,3) H=4.62222 is near paper value 0.090."""
+        ed = EdgeworthApproximation([3, 3, 3])
+        p = ed.tail_probability(4.62222)
+
+        # Paper value is 0.090, allow reasonable tolerance
+        assert 0.05 < p < 0.15, \
+            f"ED P-value {p:.6f} far from expected ~0.090"
+
+    def test_ed_four_groups(self):
+        """Test ED for (3,2,2,5) produces reasonable results."""
+        ed = EdgeworthApproximation([3, 2, 2, 5])
+        p = ed.tail_probability(5.587179)
+
+        assert 0 < p < 1, f"ED P-value {p:.6f} out of bounds"
+        # Paper value is 0.112
+        assert 0.05 < p < 0.20, \
+            f"ED P-value {p:.6f} far from expected ~0.112"
 
 
 class TestExactDistribution:

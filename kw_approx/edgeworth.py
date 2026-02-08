@@ -1,104 +1,193 @@
 """
 Edgeworth Expansion Approximation for Kruskal-Wallis Statistic
 
-Implements the Edgeworth series expansion for approximating the null distribution
-of the Kruskal-Wallis H statistic, as described in Section 3.3 of:
+Implements the chi-square based Edgeworth series expansion for approximating
+the null distribution of the Kruskal-Wallis H statistic, as described in
+Section 3.3 of:
 
 "Higher Order Asymptotic Approximations of Kruskal-Wallis Statistics"
 by Murakami, Lee, and Ha
 
-The Edgeworth expansion provides corrections to the chi-square approximation
-based on higher-order cumulants (skewness and kurtosis).
-
-For a statistic that converges to chi-square(k-1), the expansion uses
-Laguerre polynomials rather than Hermite polynomials.
+The Edgeworth expansion uses the chi-square(k-1) distribution as the base
+and expands corrections using generalized Laguerre polynomials, which is
+the natural expansion for chi-square type statistics.
 
 References:
 - Murakami, Lee & Ha: Higher Order Asymptotic Approximations of Kruskal-Wallis Statistics
-- Berry-Esseen bounds for rate of convergence
+- Kotz, Johnson & Boyd: Series Representations of Distributions of Quadratic Forms
 """
 
 import numpy as np
-from typing import List, Tuple, Optional
+from typing import List, Optional
 from scipy import stats
-from scipy.special import gamma as gamma_func
+from scipy.special import gamma as gamma_func, factorial
 from .moments import KWMoments
+
+
+def generalized_laguerre(n: int, alpha: float, x: float) -> float:
+    """
+    Compute generalized Laguerre polynomial L_n^{(alpha)}(x) via recurrence.
+
+    L_0^{(alpha)}(x) = 1
+    L_1^{(alpha)}(x) = 1 + alpha - x
+    (n+1) L_{n+1} = (2n + 1 + alpha - x) L_n - (n + alpha) L_{n-1}
+
+    Parameters
+    ----------
+    n : int
+        Degree of polynomial (>= 0)
+    alpha : float
+        Generalization parameter
+    x : float
+        Evaluation point
+
+    Returns
+    -------
+    float
+        L_n^{(alpha)}(x)
+    """
+    if n == 0:
+        return 1.0
+    if n == 1:
+        return 1.0 + alpha - x
+
+    L_prev = 1.0                  # L_0
+    L_curr = 1.0 + alpha - x     # L_1
+    for k in range(1, n):
+        L_next = ((2 * k + 1 + alpha - x) * L_curr - (k + alpha) * L_prev) / (k + 1)
+        L_prev = L_curr
+        L_curr = L_next
+    return L_curr
+
+
+def laguerre_coefficients(n: int, alpha: float) -> np.ndarray:
+    """
+    Return the polynomial coefficients of L_n^{(alpha)}(x).
+
+    L_n^{(alpha)}(x) = sum_{j=0}^{n} a_j * x^j
+
+    where a_j = (-1)^j * C(n+alpha, n-j) / j!
+
+    Parameters
+    ----------
+    n : int
+        Degree
+    alpha : float
+        Generalization parameter
+
+    Returns
+    -------
+    np.ndarray
+        Coefficients [a_0, a_1, ..., a_n] where a_j is the coeff of x^j
+    """
+    coeffs = np.zeros(n + 1)
+    for j in range(n + 1):
+        # C(n+alpha, n-j) = Gamma(n+alpha+1) / (Gamma(n-j+1) * Gamma(alpha+j+1))
+        binom = gamma_func(n + alpha + 1) / (gamma_func(n - j + 1) * gamma_func(alpha + j + 1))
+        coeffs[j] = (-1)**j * binom / factorial(j, exact=True)
+    return coeffs
 
 
 class EdgeworthApproximation:
     """
-    Edgeworth expansion approximation for the Kruskal-Wallis H statistic.
+    Chi-square based Edgeworth expansion for the Kruskal-Wallis H statistic.
 
-    The Edgeworth expansion corrects the limiting chi-square(k-1) distribution
-    using higher-order cumulants. For chi-square type statistics, this involves
-    Laguerre polynomials.
+    Uses chi-square(p) as the base distribution with generalized Laguerre
+    polynomial corrections:
 
-    For standardized statistic T_N with CDF F_N(x), mean 0, variance 1:
+        f(h) = chi2_pdf(h, p) * [1 + sum_{n=1}^M c_n * L_n^{(alpha)}(h/2)]
 
-        F_N(x) ≈ Φ(x) - (λ₃/(6√N))(x² - 1)φ(x) - (λ₄/(24N))(x³ - 3x)φ(x)
-                 - (λ₃²/(72N))(x⁵ - 10x³ + 15x)φ(x)
+        F(h) = chi2_cdf(h, p) + chi2_pdf(h, p) * sum_{n=1}^M c_n * L_{n-1}^{(alpha+1)}(h/2)
 
-    where λ₃ = E[T³] and λ₄ = E[T⁴] - 3 are standardized cumulants.
+    where alpha = p/2 - 1 and p = k - 1 (degrees of freedom).
 
     Parameters
     ----------
     sample_sizes : List[int]
         Sample sizes for each group [n1, n2, ..., nk]
-
-    Attributes
-    ----------
-    mu : float
-        Mean of H under H0 (= k - 1)
-    sigma : float
-        Standard deviation of H under H0
-    lambda3 : float
-        Standardized third cumulant (skewness)
-    lambda4 : float
-        Standardized fourth cumulant (excess kurtosis)
+    max_terms : int
+        Number of correction terms M (default: 4, uses up to 4th raw moment)
     """
 
-    def __init__(self, sample_sizes: List[int]):
+    def __init__(self, sample_sizes: List[int], max_terms: int = 4):
         self.sample_sizes = np.array(sample_sizes, dtype=int)
         self.k = len(sample_sizes)
         self.N = np.sum(self.sample_sizes)
-        self.df = self.k - 1  # degrees of freedom
+        self.df = self.k - 1  # p = k - 1
+        self.max_terms = max_terms
 
-        # Compute moments
-        self.moments = KWMoments(sample_sizes, max_moment=6)
+        # alpha for Laguerre polynomials: alpha = p/2 - 1
+        self.alpha = self.df / 2.0 - 1.0
 
-        # Extract key statistics
+        # Compute moments (need raw moments up to max_terms)
+        self.moments = KWMoments(sample_sizes, max_moment=max(max_terms + 2, 6))
+
+        # Extract key statistics (for compatibility and reporting)
         self.mu = self.moments.get_mean()
         self.sigma = self.moments.get_std()
-        self.lambda3 = self.moments.get_skewness()   # Standardized skewness
-        self.lambda4 = self.moments.get_kurtosis()   # Excess kurtosis
+        self.lambda3 = self.moments.get_skewness()
+        self.lambda4 = self.moments.get_kurtosis()
 
-        # For chi-square reference
-        self._chi2_skewness = np.sqrt(8.0 / self.df) if self.df > 0 else 0.0
-        self._chi2_kurtosis = 12.0 / self.df if self.df > 0 else 0.0
+        # Compute Laguerre expansion coefficients
+        self._coefficients = self._compute_coefficients()
 
-    def standardize(self, h: float) -> float:
+    def _compute_coefficients(self) -> np.ndarray:
         """
-        Standardize h to z = (h - μ) / σ.
+        Compute expansion coefficients c_n from raw moments.
 
-        Parameters
-        ----------
-        h : float
-            Original H statistic value
+        c_n = (n! / Gamma(n + alpha + 1)) * sum_{j=0}^{n} a_{n,j} * mu'_j
+
+        where:
+        - a_{n,j} are polynomial coefficients of L_n^{(alpha)}
+        - mu'_j = E[H^j] / 2^j  (scaled raw moments, since chi2 scale = 2)
+        - c_0 = 1 by construction
 
         Returns
         -------
-        float
-            Standardized value z
+        np.ndarray
+            Coefficients c_0, c_1, ..., c_M
         """
-        if self.sigma <= 0:
-            return 0.0
-        return (h - self.mu) / self.sigma
+        M = self.max_terms
+        alpha = self.alpha
+        raw = self.moments.raw_moments
+
+        # Scaled raw moments: mu'_j = E[H^j] / 2^j
+        # (scaling because chi-square has scale beta=2, and Laguerre
+        #  orthogonality is w.r.t. x^alpha * exp(-x), so x = h/2)
+        scaled_moments = {}
+        for j in range(M + 1):
+            if j in raw:
+                scaled_moments[j] = raw[j] / (2.0 ** j)
+            else:
+                # Fallback: use chi-square moment
+                # E_chi2[X^j] = 2^j * Gamma(p/2 + j) / Gamma(p/2)
+                chi2_raw_j = (2.0 ** j) * gamma_func(self.df / 2.0 + j) / gamma_func(self.df / 2.0)
+                scaled_moments[j] = chi2_raw_j / (2.0 ** j)
+
+        coeffs = np.zeros(M + 1)
+        coeffs[0] = 1.0  # Normalization
+
+        for n in range(1, M + 1):
+            # Get polynomial coefficients of L_n^{(alpha)}
+            lag_coeffs = laguerre_coefficients(n, alpha)
+
+            # c_n = (n! / Gamma(n + alpha + 1)) * sum_j a_{n,j} * mu'_j
+            norm = factorial(n, exact=True) / gamma_func(n + alpha + 1)
+
+            total = 0.0
+            for j in range(n + 1):
+                if j in scaled_moments:
+                    total += lag_coeffs[j] * scaled_moments[j]
+
+            coeffs[n] = norm * total
+
+        return coeffs
 
     def pdf(self, h: float) -> float:
         """
-        Edgeworth expansion approximation to the PDF of H.
+        Chi-square based Edgeworth density approximation.
 
-        f_ED(h) = (1/σ) * φ(z) * [1 + correction terms]
+        f(h) = chi2_pdf(h, p) * [1 + sum_{n=1}^M c_n * L_n^{(alpha)}(h/2)]
 
         Parameters
         ----------
@@ -113,37 +202,23 @@ class EdgeworthApproximation:
         if h <= 0:
             return 0.0
 
-        z = self.standardize(h)
+        base_pdf = stats.chi2.pdf(h, self.df)
+        x = h / 2.0  # Scaled argument for Laguerre polynomials
 
-        # Standard normal PDF
-        phi_z = stats.norm.pdf(z)
+        correction = 1.0
+        for n in range(1, self.max_terms + 1):
+            correction += self._coefficients[n] * generalized_laguerre(n, self.alpha, x)
 
-        # Edgeworth correction terms
-        # Using Hermite polynomials for normal-based expansion
-        He3 = z**3 - 3*z           # H_3(z)
-        He4 = z**4 - 6*z**2 + 3    # H_4(z)
-        He6 = z**6 - 15*z**4 + 45*z**2 - 15  # H_6(z)
-
-        # Correction factor
-        # Note: For density, we differentiate the CDF expansion
-        correction = (1 +
-                     self.lambda3 / 6 * He3 +
-                     self.lambda4 / 24 * He4 +
-                     self.lambda3**2 / 72 * He6)
-
-        density = phi_z * correction / self.sigma
-
+        density = base_pdf * correction
         return max(density, 0.0)
 
     def cdf(self, h: float) -> float:
         """
-        Edgeworth expansion approximation to the CDF of H.
+        Chi-square based Edgeworth CDF approximation.
 
-        F_ED(h) ≈ Φ(z) - φ(z) * [correction terms]
+        Using the identity d/dx L_n^{(alpha)}(x) = -L_{n-1}^{(alpha+1)}(x):
 
-        From the paper (Section 3.3):
-        F_N(x) ≈ Φ(x) - (λ₃/6√N)(x² - 1)φ(x) - (λ₄/24N)(x³ - 3x)φ(x)
-                 - (λ₃²/72N)(x⁵ - 10x³ + 15x)φ(x)
+        F(h) = chi2_cdf(h, p) + chi2_pdf(h, p) * sum_{n=1}^M c_n * L_{n-1}^{(alpha+1)}(h/2)
 
         Parameters
         ----------
@@ -158,74 +233,16 @@ class EdgeworthApproximation:
         if h <= 0:
             return 0.0
 
-        z = self.standardize(h)
+        base_cdf = stats.chi2.cdf(h, self.df)
+        base_pdf = stats.chi2.pdf(h, self.df)
+        x = h / 2.0
 
-        # Standard normal CDF and PDF
-        Phi_z = stats.norm.cdf(z)
-        phi_z = stats.norm.pdf(z)
+        correction = 0.0
+        for n in range(1, self.max_terms + 1):
+            # L_{n-1}^{(alpha+1)}(x) — note alpha is shifted by +1
+            correction += self._coefficients[n] * generalized_laguerre(n - 1, self.alpha + 1, x)
 
-        # Hermite polynomials (one degree lower for CDF)
-        He2 = z**2 - 1             # H_2(z)
-        He3 = z**3 - 3*z           # H_3(z)
-        He5 = z**5 - 10*z**3 + 15*z  # H_5(z)
-
-        # Edgeworth correction
-        # Note: The correction involves 1/√N factors which are absorbed into λ
-        correction = phi_z * (
-            self.lambda3 / 6 * He2 +
-            self.lambda4 / 24 * He3 +
-            self.lambda3**2 / 72 * He5
-        )
-
-        cdf_value = Phi_z - correction
-
-        return np.clip(cdf_value, 0.0, 1.0)
-
-    def cdf_chi2_based(self, h: float) -> float:
-        """
-        Chi-square based Edgeworth expansion (alternative formulation).
-
-        This uses the chi-square distribution as the base instead of normal,
-        which is more natural for the Kruskal-Wallis statistic.
-
-        The expansion uses Laguerre polynomials instead of Hermite polynomials.
-
-        Parameters
-        ----------
-        h : float
-            Point at which to evaluate CDF
-
-        Returns
-        -------
-        float
-            Approximate P(H <= h)
-        """
-        if h <= 0:
-            return 0.0
-
-        # Base chi-square CDF
-        chi2_cdf = stats.chi2.cdf(h, self.df)
-        chi2_pdf = stats.chi2.pdf(h, self.df)
-
-        # Compute deviation from chi-square cumulants
-        delta_skew = self.lambda3 - self._chi2_skewness
-        delta_kurt = self.lambda4 - self._chi2_kurtosis
-
-        # Laguerre-based correction (simplified)
-        # L_0(x) = 1, L_1(x) = 1-x, L_2(x) = (x^2 - 4x + 2)/2, etc.
-        x = h / 2  # Scale for chi-square
-
-        L1 = 1 - x
-        L2 = (x**2 - 4*x + 2) / 2
-        L3 = (-x**3 + 9*x**2 - 18*x + 6) / 6
-
-        # Correction based on cumulant differences
-        correction = chi2_pdf * (
-            delta_skew / 6 * L2 +
-            delta_kurt / 24 * L3
-        )
-
-        cdf_value = chi2_cdf - correction
+        cdf_value = base_cdf + base_pdf * correction
 
         return np.clip(cdf_value, 0.0, 1.0)
 
@@ -261,6 +278,42 @@ class EdgeworthApproximation:
         """
         return self.sf(h)
 
+    def cdf_normal_based(self, h: float) -> float:
+        """
+        Normal-based Edgeworth expansion (legacy, same as GC-A).
+
+        Preserved for comparison. Uses Hermite polynomials with normal base.
+
+        Parameters
+        ----------
+        h : float
+            Point at which to evaluate CDF
+
+        Returns
+        -------
+        float
+            Approximate P(H <= h)
+        """
+        if h <= 0:
+            return 0.0
+
+        z = (h - self.mu) / self.sigma if self.sigma > 0 else 0.0
+
+        Phi_z = stats.norm.cdf(z)
+        phi_z = stats.norm.pdf(z)
+
+        He2 = z**2 - 1
+        He3 = z**3 - 3 * z
+        He5 = z**5 - 10 * z**3 + 15 * z
+
+        correction = phi_z * (
+            self.lambda3 / 6 * He2 +
+            self.lambda4 / 24 * He3 +
+            self.lambda3**2 / 72 * He5
+        )
+
+        return np.clip(Phi_z - correction, 0.0, 1.0)
+
     def critical_value(self, alpha: float) -> float:
         """
         Compute critical value for significance level alpha.
@@ -283,11 +336,9 @@ class EdgeworthApproximation:
             return self.sf(c) - alpha
 
         try:
-            # Use chi-square quantile as starting point
             c_chi2 = stats.chi2.ppf(1 - alpha, self.df)
             c_star = brentq(objective, max(0.01, c_chi2 - 5), c_chi2 + 10, xtol=1e-8)
         except ValueError:
-            # Fallback to chi-square
             c_star = stats.chi2.ppf(1 - alpha, self.df)
 
         return c_star
@@ -312,19 +363,12 @@ class EdgeworthApproximation:
         """
         Estimate Berry-Esseen type error bound for the approximation.
 
-        The classical Berry-Esseen bound is O(N^{-1/2}).
-        With Edgeworth corrections, the error is O(N^{-1}).
-
         Returns
         -------
         float
             Estimated error bound
         """
-        # Approximate error bound based on sample size
-        # For Edgeworth, error is O(N^{-1}) in smooth case
-        # but can be O(N^{-1/2}) for lattice distributions
-
-        return 1.0 / self.N  # Optimistic bound
+        return 1.0 / self.N
 
     def get_parameters(self) -> dict:
         """
@@ -340,27 +384,21 @@ class EdgeworthApproximation:
             'sigma': self.sigma,
             'lambda3': self.lambda3,
             'lambda4': self.lambda4,
-            'chi2_skewness': self._chi2_skewness,
-            'chi2_kurtosis': self._chi2_kurtosis,
+            'alpha': self.alpha,
             'df': self.df,
-            'N': self.N
+            'N': self.N,
+            'coefficients': self._coefficients.tolist()
         }
 
     def is_stable(self) -> bool:
         """
         Check if the Edgeworth approximation is likely stable.
 
-        The approximation can produce oscillations (sawtooth error)
-        for lattice-valued random variables and may give negative
-        densities when skewness/kurtosis are extreme.
-
         Returns
         -------
         bool
             True if approximation is likely stable
         """
-        # Approximation tends to be unstable for extreme skewness/kurtosis
-        # or very small sample sizes
         return (abs(self.lambda3) < 2.0 and
                 abs(self.lambda4) < 6.0 and
                 self.N >= 9)
