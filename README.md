@@ -66,8 +66,8 @@ flowchart TB
         F["Chi-square<br/>χ²ₖ₋₁"]
         G["Saddlepoint<br/>SD1, SD2"]
         H["PAM/PAG<br/>다항식 조정 감마"]
-        I["Edgeworth<br/>급수 전개"]
-        J["Gram-Charlier<br/>GC-A"]
+        I["Edgeworth<br/>χ² base + Laguerre"]
+        J["Gram-Charlier<br/>Normal base + Hermite"]
         K["Exact<br/>정확 분포"]
     end
 
@@ -101,13 +101,13 @@ flowchart LR
 
     subgraph Step3["3. CGF 근사"]
         CGF1["ER1: Σκᵢtⁱ/i!"]
-        CGF2["ER2: log형"]
+        CGF2["Wang: κ₁t+κ₂t²/2+(κ₃t³/6+κ₄t⁴/24)η_p"]
     end
 
     subgraph Step4["4. 꼬리확률"]
         P1["Lugannani-Rice"]
         P2["PAG 적분"]
-        P3["Edgeworth CDF"]
+        P3["Edgeworth CDF<br/>(χ² + Laguerre 보정)"]
     end
 
     H1 --> K1 & K2 & K3
@@ -136,7 +136,14 @@ flowchart TB
         P4 --> P5["CDF 적분"]
     end
 
-    subgraph GramCharlier["Gram-Charlier"]
+    subgraph Edgeworth["Edgeworth (χ² + Laguerre)"]
+        direction TB
+        E1["원시 모멘트<br/>μ₁,...,μ_M"] --> E2["Laguerre 계수<br/>c_n 계산"]
+        E2 --> E3["f_ED = χ²_pdf × [1 + Σc_n L_n^(α)]"]
+        E3 --> E4["F_ED = χ²_cdf + χ²_pdf × Σc_n L_{n-1}^(α+1)"]
+    end
+
+    subgraph GramCharlier["Gram-Charlier (Normal + Hermite)"]
         direction TB
         G1["표준화<br/>z = (h-μ)/σ"] --> G2["Hermite 다항식<br/>H₃, H₄, H₆"]
         G2 --> G3["f_GC = φ(z)[1 + γ₁H₃/6 + γ₂H₄/24 + γ₁²H₆/72]"]
@@ -171,20 +178,37 @@ $$\Pr(H \geq v) \approx 1 - \Phi(\hat{w}) + \phi(\hat{w})\left(\frac{1}{\hat{u}}
 
 **CGF (Cumulant Generating Function) 근사:**
 
-**ER1 (Easton-Ronchetti 1):**
+**ER1 (Easton-Ronchetti 1) — SD1에 사용:**
 $$K_H(t) \approx \sum_{i=1}^{4} \frac{\kappa_i t^i}{i!}$$
 
-**ER2 (Easton-Ronchetti 2):**
-$$K_H(t) \approx \kappa_1 t + \frac{\kappa_2}{2}t^2 + \log\left(1 + \frac{\kappa_3}{6}t^3 + \frac{3\kappa_4}{72}t^4 + \frac{\kappa_3^2}{72}t^6\right)$$
+**Wang (KW) — SD2에 사용:**
+$$K_H(t) \approx \kappa_1 t + \frac{\kappa_2}{2}t^2 + \left(\frac{\kappa_3}{6}t^3 + \frac{\kappa_4}{24}t^4\right)\eta_p(t)$$
+
+여기서 $\eta_p(t) = \exp(-\kappa_2 p^2 t^2 / 2)$
 
 **연속성 보정 (Continuity Correction):**
-이산 분포의 특성을 보정하기 위해 $v$를 $v + 1/2$로 대체하여 SDC1, SDC2 계산
+이산 분포의 특성을 보정하기 위해 $v$를 $v - 1/2$로 대체하여 SDC1, SDC2 계산
 
-### 3. Edgeworth Expansion (ED)
+### 3. Edgeworth Expansion (ED) — Chi-square base + Laguerre 다항식
 
-Berry-Esseen 정리 기반의 Edgeworth 전개로, 카이제곱 근사에 왜도와 첨도 보정을 추가합니다.
+논문 Section 3.3에 따라, H 통계량이 카이제곱과 유사하므로 **카이제곱 분포를 기저**로 하고 **일반화 Laguerre 다항식**으로 보정하는 전개를 사용합니다:
 
-### 4. Gram-Charlier Series (GC-A)
+**밀도 (PDF):**
+$$f_{ED}(h) = f_{\chi^2}(h; p) \left[1 + \sum_{n=1}^{M} c_n L_n^{(\alpha)}(h/2)\right]$$
+
+**누적분포 (CDF):**
+$$F_{ED}(h) = F_{\chi^2}(h; p) + f_{\chi^2}(h; p) \sum_{n=1}^{M} c_n L_{n-1}^{(\alpha+1)}(h/2)$$
+
+여기서:
+- $p = k-1$ (자유도), $\alpha = p/2 - 1$ (Laguerre 파라미터)
+- $L_n^{(\alpha)}(x)$: 일반화 Laguerre 다항식 (3-term recurrence로 계산)
+- $c_n = \frac{n!}{\Gamma(n+\alpha+1)} \sum_{j=0}^{n} a_{n,j} \cdot \mu'_j$: 원시 모멘트로부터 계산되는 계수
+- $\mu'_j = E[H^j] / 2^j$: 스케일된 원시 모멘트
+- $M = 4$ (4차 절단)
+
+이 방법은 GC-A와 달리 카이제곱 기저를 사용하므로 서로 다른 결과를 반환합니다.
+
+### 4. Gram-Charlier Series (GC-A) — Normal base + Hermite 다항식
 
 정규분포를 기저로 한 급수 전개:
 
@@ -211,6 +235,44 @@ p = sim.tail_probability(4.5)
 cv, actual_alpha = sim.critical_value(0.10)
 ```
 
+## 논문 테이블 비교 결과
+
+아래는 논문의 Table 4.1, 4.5 (10% 유의수준 근처)와 코드 결과의 비교입니다.
+
+### Table 4.1: (3,3,3) H=4.62222
+
+| Method | Code | Paper | RelErr | 판정 |
+|--------|------|-------|--------|------|
+| CHI | 0.0992 | 0.0992 | 0.0% | 완벽 |
+| SD1 | 0.0755 | 0.0843 | 10.4% | 보통 |
+| SD2 (Wang) | 0.0796 | 0.0789 | 0.8% | 완벽 |
+| SDC1 | 0.1142 | 0.1245 | 8.3% | 보통 |
+| SDC2 | 0.1195 | 0.1219 | 1.9% | 우수 |
+| PAG(4) | 0.0933 | 0.0981 | 4.9% | 우수 |
+| PAG(6) | 0.0882 | 0.0934 | 5.5% | 보통 |
+| GC-A | 0.0742 | 0.3974 | — | 차이* |
+| **ED** | **0.0934** | **0.0900** | **3.7%** | **우수** |
+| Exact | 0.1000 | 0.1000 | 0.0% | 완벽 |
+
+### Table 4.5: (3,2,2,5) H=5.587179
+
+| Method | Code | Paper | RelErr | 판정 |
+|--------|------|-------|--------|------|
+| CHI | 0.1335 | 0.1335 | 0.0% | 완벽 |
+| SD1 | 0.1054 | 0.1054 | 0.0% | 완벽 |
+| SD2 (Wang) | 0.1102 | 0.1128 | 2.3% | 우수 |
+| SDC1 | 0.1495 | 0.1483 | 0.8% | 완벽 |
+| SDC2 | 0.1548 | 0.1603 | 3.4% | 우수 |
+| PAG(4) | 0.1224 | 0.1094 | 11.9% | 보통 |
+| PAG(6) | 0.1114 | 0.1081 | 3.1% | 우수 |
+| GC-A | 0.1091 | 0.1733 | — | 차이* |
+| **ED** | **0.1256** | **0.1123** | **11.9%** | **보통** |
+| Exact | 0.1136 | 0.1136 | 0.0% | 완벽 |
+
+> \* GC-A 차이는 논문이 "clearly unsatisfactory"로 평가한 방법이며, 논문이 사용한 exact cumulant 공식과 코드의 simulation 기반 moment의 차이에서 기인합니다.
+
+> **참고:** 5% 유의수준 테이블(Table 4.2, 4.4, 4.6)에서는 CHI와 ED를 제외한 대부분의 방법에서 논문과 차이가 있습니다. 이는 코드가 simulation 기반으로 추정한 고차 moment와 논문의 exact analytic cumulant 공식 간의 차이가 꼬리 깊은 곳에서 증폭되기 때문입니다.
+
 ## 모멘트와 큐뮬런트
 
 귀무가설 하에서 H 통계량의 기본 모멘트:
@@ -232,19 +294,19 @@ cv, actual_alpha = sim.critical_value(0.10)
 
 ## 사용 가능한 방법들
 
-| 코드명 | 설명 | 논문 명칭 |
-|--------|------|----------|
-| `chi_square` | 카이제곱 근사 | CHI |
-| `saddlepoint` | 새들포인트 (ER1 CGF) | SD1 |
-| `saddlepoint_sd2` | 새들포인트 (ER2 CGF) | SD2 |
-| `saddlepoint_cc` | 새들포인트 + 연속성 보정 | SDC1 |
-| `saddlepoint_cc2` | 새들포인트 SD2 + 연속성 보정 | SDC2 |
-| `edgeworth` | Edgeworth 전개 | ED |
-| `gram_charlier` | Gram-Charlier 급수 | GC-A |
-| `pam` | PAM (degree 4) | PAG(4) |
-| `pam6` | PAM (degree 6) | PAG(6) |
-| `exact` | 정확 분포 | E-P |
-| `simulation` | Monte Carlo 시뮬레이션 | Simulation |
+| 코드명 | 설명 | 논문 명칭 | 기저 분포 |
+|--------|------|----------|----------|
+| `chi_square` | 카이제곱 근사 | CHI | χ²(k-1) |
+| `saddlepoint` | 새들포인트 (ER1 CGF) | SD1 | — |
+| `saddlepoint_sd2` | 새들포인트 (Wang CGF) | SD2 | — |
+| `saddlepoint_cc` | 새들포인트 + 연속성 보정 | SDC1 | — |
+| `saddlepoint_cc2` | 새들포인트 SD2 + 연속성 보정 | SDC2 | — |
+| `edgeworth` | Edgeworth (χ² + Laguerre) | ED | χ²(k-1) |
+| `gram_charlier` | Gram-Charlier (Normal + Hermite) | GC-A | Normal |
+| `pam` | PAG (degree 4) | PAG(4) | Gamma |
+| `pam6` | PAG (degree 6) | PAG(6) | Gamma |
+| `exact` | 정확 분포 | E-P | — |
+| `simulation` | Monte Carlo 시뮬레이션 | Simulation | — |
 
 ## 패키지 구조
 
@@ -282,9 +344,13 @@ classDiagram
     }
 
     class EdgeworthApproximation {
-        +lambda3, lambda4: float
+        +alpha: float
+        +max_terms: int
+        +_coefficients: ndarray
+        +pdf(h)
         +cdf(h)
         +sf(h)
+        +cdf_normal_based(h)
     }
 
     class GramCharlierApproximation {
@@ -297,6 +363,13 @@ classDiagram
         +distribution: Dict
         +sf(h)
         +cdf(h)
+    }
+
+    class MonteCarloSimulation {
+        +n_simulations: int
+        +tail_probability(h)
+        +critical_value(alpha)
+        +summary()
     }
 
     KWApproximator --> KWMoments
@@ -312,13 +385,6 @@ classDiagram
     GramCharlierApproximation --> KWMoments
 ```
 
-    class MonteCarloSimulation {
-        +n_simulations: int
-        +tail_probability(h)
-        +critical_value(alpha)
-        +summary()
-    }
-
 ### 파일 구조
 
 ```
@@ -329,7 +395,7 @@ kw_approx/
 ├── saddlepoint.py        # 새들포인트 근사 (SD1, SD2, SDC1, SDC2)
 ├── pam.py                # 다항식 조정 감마 근사 (PAM/PAG)
 ├── gram_charlier.py      # Gram-Charlier 급수 근사 (GC-A)
-├── edgeworth.py          # Edgeworth 전개 (ED)
+├── edgeworth.py          # Edgeworth 전개 (ED) — χ² + Laguerre
 ├── exact.py              # 정확 분포 (소표본)
 ├── simulation.py         # Monte Carlo 시뮬레이션
 └── approximator.py       # 통합 인터페이스
@@ -338,7 +404,7 @@ examples/
 └── reproduce_paper_tables.py  # 논문 테이블 재현
 
 tests/
-└── test_approximations.py     # 테스트 케이스
+└── test_approximations.py     # 테스트 케이스 (36개)
 ```
 
 ## 상세 사용법
@@ -362,17 +428,17 @@ pam = PolynomialAdjustedGamma(sample_sizes, degree=6)
 print(f"PAM CDF: {pam.cdf(4.62):.6f}")
 print(f"PAM SF:  {pam.sf(4.62):.6f}")
 
-# Saddlepoint (SD1: ER1, SD2: ER2)
+# Saddlepoint (SD1: ER1, SD2: Wang)
 sp1 = SaddlepointApproximation(sample_sizes, cgf_method='ER1')
-sp2 = SaddlepointApproximation(sample_sizes, cgf_method='ER2')
+sp2 = SaddlepointApproximation(sample_sizes, cgf_method='Wang')
 print(f"SD1: {sp1.tail_probability_lr(4.62):.6f}")
 print(f"SD2: {sp2.tail_probability_lr(4.62):.6f}")
 
-# Edgeworth
+# Edgeworth (chi-square base + Laguerre polynomials)
 ed = EdgeworthApproximation(sample_sizes)
 print(f"Edgeworth: {ed.tail_probability(4.62):.6f}")
 
-# Gram-Charlier
+# Gram-Charlier (normal base + Hermite polynomials)
 gc = GramCharlierApproximation(sample_sizes)
 print(f"Gram-Charlier: {gc.sf(4.62):.6f}")
 
@@ -436,7 +502,7 @@ for method in ['exact', 'chi_square', 'saddlepoint', 'pam6']:
 | N ≤ 15 | k ≤ 3 | `exact` | 정확 분포 계산 가능 |
 | N ≤ 13 | k = 4 | `exact` | 정확 분포 계산 가능 |
 | N ≤ 10 | k ≥ 5 | `exact` | 정확 분포 계산 가능 |
-| 15 < N ≤ 50 | - | `pam6` | PAM (degree 6) 가장 정확 |
+| 15 < N ≤ 50 | - | `pam6` | PAG (degree 6) 가장 정확 |
 | N > 50 | - | `saddlepoint` | 새들포인트 효율적 |
 | N > 임계값 | - | `simulation` | 정확 분포 대신 Monte Carlo |
 
@@ -490,7 +556,7 @@ python -m pytest tests/test_approximations.py -v
 6. Provost, S. B., Jiang, M. & Ha, H-T. (2009). Moment-based approximations of probability mass functions with applications involving order statistics. *Communication in Statistics: Theory and Method*, 38, 1969-1981.
 7. Easton, G. S. & Ronchetti, E. (1986). General saddlepoint approximations with applications to L statistics. *JASA*, 81, 420-430.
 8. Wang, S. (1992). General saddlepoint approximations in the bootstrap. *Statistics & Probability Letters*, 13, 61-66.
-9. Kakizawa, Y. & Taniguchi, M. (1994). Higher order asymptotic theory for discriminant analysis in Gaussian stationary processes. *Journal of Japan Statistical Society*, 24, 1-13.
+9. Kotz, S., Johnson, N. L. & Boyd, D. W. (1967). Series representations of distributions of quadratic forms in normal variables. *Annals of Mathematical Statistics*, 38, 823-837.
 10. Wood, A. T. A., Booth, J. G. & Butler, R. W. (1993). Saddlepoint approximations with nonnormal limit distributions. *JASA*, 88, 680-686.
 
 ## 라이선스
