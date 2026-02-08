@@ -14,6 +14,7 @@ References:
 """
 
 import numpy as np
+import warnings
 from typing import List, Tuple, Optional
 from scipy import stats
 from scipy.special import gamma as gamma_func, gammainc, gammaincc
@@ -168,13 +169,22 @@ class PolynomialAdjustedGamma:
                 # Estimate higher moments using gamma approximation
                 mu_H[h] = self._gamma_baseline_moment(h)
         
-        # Solve for coefficients
+        # Warn about ill-conditioning but use direct solve which
+        # works well enough for typical PAM moment matrices (cond ~1e12)
+        cond = np.linalg.cond(M)
+        if cond > 1e14:
+            warnings.warn(
+                f"PAM moment matrix severely ill-conditioned (cond={cond:.1e}, degree={d}). "
+                f"Consider reducing polynomial degree.",
+                RuntimeWarning
+            )
+
         try:
             xi = solve(M, mu_H)
         except np.linalg.LinAlgError:
             # If matrix is singular, use pseudo-inverse
             xi = np.linalg.lstsq(M, mu_H, rcond=None)[0]
-        
+
         return xi
     
     def gamma_pdf(self, x: float) -> float:

@@ -18,7 +18,6 @@ import numpy as np
 from typing import List, Tuple, Optional, Dict
 from scipy import stats
 from scipy.optimize import brentq, newton
-from scipy.special import gamma as gamma_func
 from .moments import KWMoments
 
 
@@ -50,9 +49,86 @@ class SaddlepointApproximation:
         self.moments = KWMoments(sample_sizes, max_moment=6)
         
         self.cgf_method = cgf_method
+        self._wang_p_cache = None
         
         # Cache cumulants for CGF computations
         self._kappa = self.moments.cumulants
+
+    def _wang_second_derivative(self, t: float, p: float) -> float:
+        """Analytic K'' for Wang's CGF.
+
+        Paper formula (Section 3.2):
+        KW(t;p) = κ₁t + κ₂t²/2 + (κ₃t³/6 + κ₄t⁴/24)·η_p(t)
+        where η_p(t) = exp(-κ₂·p²·t²/2).
+
+        K'' = κ₂ + d²/dt² [(κ₃t³/6 + κ₄t⁴/24)·η]
+        """
+        kappa = self._kappa
+        if kappa[2] <= 0:
+            return kappa[2] + kappa[3] * t + kappa[4] * t**2 / 2
+        a = kappa[2] * p**2
+        eta = np.exp(-a * t**2 / 2)
+        d_eta = -a * t * eta
+        dd_eta = (-a + a**2 * t**2) * eta
+
+        # f(t) = κ₃t³/6 + κ₄t⁴/24
+        f = kappa[3] * t**3 / 6 + kappa[4] * t**4 / 24
+        fp = kappa[3] * t**2 / 2 + kappa[4] * t**3 / 6
+        fpp = kappa[3] * t + kappa[4] * t**2 / 2
+
+        # d²/dt²[f·η] = f''·η + 2·f'·η' + f·η''
+        return kappa[2] + fpp * eta + 2 * fp * d_eta + f * dd_eta
+
+    def _get_wang_p(self) -> float:
+        """
+        Select Wang's p following the paper rule:
+            p = max(1/2, inf{q | K''_W(t; q) >= 0 for all t in H}).
+        We approximate the infimum numerically on a dense finite t-grid.
+        """
+        if self._wang_p_cache is not None:
+            return self._wang_p_cache
+
+        q_min = 0.5
+        if self._kappa[2] <= 0:
+            self._wang_p_cache = q_min
+            return self._wang_p_cache
+
+        t_max = max(8.0, 4.0 / np.sqrt(max(self._kappa[2], 1e-12)))
+        t_grid = np.linspace(-t_max, t_max, 801)
+
+        def is_convex(q: float) -> bool:
+            vals = np.array([self._wang_second_derivative(t, q) for t in t_grid], dtype=float)
+            return np.all(vals >= -1e-10)
+
+        if is_convex(q_min):
+            self._wang_p_cache = q_min
+            return self._wang_p_cache
+
+        q_lo = q_min
+        q_hi = 1.0
+        found = False
+        for _ in range(20):
+            if is_convex(q_hi):
+                found = True
+                break
+            q_hi *= 1.5
+            if q_hi > 8.0:
+                break
+
+        if not found:
+            # If no convex q is found in practical range, default to q=1/2.
+            self._wang_p_cache = q_min
+            return self._wang_p_cache
+
+        for _ in range(40):
+            q_mid = 0.5 * (q_lo + q_hi)
+            if is_convex(q_mid):
+                q_hi = q_mid
+            else:
+                q_lo = q_mid
+
+        self._wang_p_cache = max(q_min, q_hi)
+        return self._wang_p_cache
     
     def cumulant_generating_function(self, t: float) -> float:
         """
@@ -98,16 +174,15 @@ class SaddlepointApproximation:
                         kappa[4] * t**4 / 24)
         
         elif self.cgf_method == 'Wang':
-            # Wang (1992) approximation with damping
-            # K_H(t;p) = kappa_1*t + (kappa_2/2)*t^2 + (kappa_3/6)*t^3 + 
-            #            (kappa_4/24)*t^4 * eta_p(t)
-            # where eta_p(t) = exp(-kappa_2^p * t^2 / 2)
-            p = 0.5  # Default p value
-            eta = np.exp(-kappa[2]**p * t**2 / 2)
-            return (kappa[1] * t + 
-                    kappa[2] * t**2 / 2 + 
-                    kappa[3] * t**3 / 6 + 
-                    kappa[4] * t**4 / 24 * eta)
+            # Wang (1992) approximation with damping (paper Section 3.2):
+            # KW(t;p) = κ₁t + κ₂t²/2 + (κ₃t³/6 + κ₄t⁴/24)·η_p(t)
+            # where η_p(t) = exp(-κ₂·p²·t²/2)
+            p = self._get_wang_p()
+            a = kappa[2] * p**2
+            eta = np.exp(-a * t**2 / 2)
+            return (kappa[1] * t +
+                    kappa[2] * t**2 / 2 +
+                    (kappa[3] * t**3 / 6 + kappa[4] * t**4 / 24) * eta)
         
         elif self.cgf_method == 'KT':
             # Kakizawa-Taniguchi (1994) correction
@@ -163,14 +238,15 @@ class SaddlepointApproximation:
                         kappa[4] * t**3 / 6)
         
         elif self.cgf_method == 'Wang':
-            p = 0.5
-            eta = np.exp(-kappa[2]**p * t**2 / 2)
-            d_eta = -kappa[2]**p * t * eta
-            term4 = kappa[4] * t**3 / 6
-            return (kappa[1] + 
-                    kappa[2] * t + 
-                    kappa[3] * t**2 / 2 + 
-                    term4 * eta + kappa[4] * t**4 / 24 * d_eta)
+            # d/dt[KW] = κ₁ + κ₂t + d/dt[(κ₃t³/6 + κ₄t⁴/24)·η]
+            # = κ₁ + κ₂t + f'·η + f·η'
+            p = self._get_wang_p()
+            a = kappa[2] * p**2
+            eta = np.exp(-a * t**2 / 2)
+            d_eta = -a * t * eta
+            f = kappa[3] * t**3 / 6 + kappa[4] * t**4 / 24
+            fp = kappa[3] * t**2 / 2 + kappa[4] * t**3 / 6
+            return kappa[1] + kappa[2] * t + fp * eta + f * d_eta
         
         else:
             return (kappa[1] + 
@@ -196,6 +272,9 @@ class SaddlepointApproximation:
         
         if self.cgf_method in ['ER1', 'exact']:
             return kappa[2] + kappa[3] * t + kappa[4] * t**2 / 2
+        elif self.cgf_method == 'Wang':
+            p = self._get_wang_p()
+            return self._wang_second_derivative(t, p)
         
         else:
             # Numerical derivative as fallback
@@ -205,49 +284,75 @@ class SaddlepointApproximation:
     def cgf_derivative3(self, t: float) -> float:
         """Third derivative of CGF: K'''_H(t)."""
         kappa = self._kappa
-        return kappa[3] + kappa[4] * t
+
+        if self.cgf_method in ['ER1', 'KT', 'exact']:
+            return kappa[3] + kappa[4] * t
+        else:
+            # Numerical derivative for ER2, Wang, and other methods
+            h = 1e-6
+            return (self.cgf_derivative2(t + h) - self.cgf_derivative2(t - h)) / (2 * h)
     
     def find_saddlepoint(self, x: float) -> float:
         """
         Find the saddlepoint t_hat that solves K'_H(t) = x.
-        
+
+        Uses dynamic bracket expansion with sign constraints to ensure
+        the correct root is found (t_hat > 0 when x > mean, t_hat < 0
+        when x < mean).
+
         Parameters
         ----------
         x : float
             Target value (typically the observed H statistic)
-            
+
         Returns
         -------
         float
             The saddlepoint t_hat
         """
-        # For Kruskal-Wallis, the saddlepoint equation is a polynomial
-        # which can be solved numerically
-        
         def equation(t):
             return self.cgf_derivative1(t) - x
-        
-        # Try to bracket the root
-        # The saddlepoint should be positive for x > mean
+
         mean = self.moments.get_mean()
-        
-        try:
-            if x > mean:
-                # Search in positive t region
-                t_hat = brentq(equation, 0, 10, xtol=1e-10)
-            elif x < mean:
-                # Search in negative t region
-                t_hat = brentq(equation, -10, 0, xtol=1e-10)
-            else:
-                t_hat = 0.0
-        except ValueError:
-            # If bracketing fails, use Newton's method
+
+        if abs(x - mean) < 1e-10:
+            return 0.0
+
+        # Sign constraint: x > mean => t_hat > 0, x < mean => t_hat < 0
+        if x > mean:
+            lo, hi = 0.0, 1.0
+        else:
+            lo, hi = -1.0, 0.0
+
+        # Dynamic bracket expansion until sign change is found
+        for _ in range(60):
             try:
-                t_hat = newton(equation, 0.0, fprime=self.cgf_derivative2, tol=1e-10)
-            except RuntimeError:
-                t_hat = 0.0
-        
-        return t_hat
+                f_lo = equation(lo)
+                f_hi = equation(hi)
+                if (np.isfinite(f_lo) and np.isfinite(f_hi) and
+                        np.sign(f_lo) != np.sign(f_hi)):
+                    t_hat = brentq(equation, lo, hi, xtol=1e-12)
+                    return t_hat
+            except (ValueError, OverflowError):
+                pass
+            # Expand bracket outward
+            if x > mean:
+                hi *= 2.0
+                if hi > 200:
+                    break
+            else:
+                lo *= 2.0
+                if lo < -200:
+                    break
+
+        # Newton fallback with sign-appropriate initial guess
+        try:
+            t0 = 0.1 if x > mean else -0.1
+            t_hat = newton(equation, t0, fprime=self.cgf_derivative2,
+                          tol=1e-10, maxiter=200)
+            return t_hat
+        except (RuntimeError, ValueError):
+            return 0.0
     
     def density_approximation(self, x: float, continuity_correction: bool = False) -> float:
         """
@@ -268,9 +373,10 @@ class SaddlepointApproximation:
             Approximate density f_H(x)
         """
         if continuity_correction:
-            # For discrete distributions, adjust evaluation point
+            # Standard upper-tail CC for discrete distributions: x - 0.5
+            # (paper text writes +0.5 but table values match -0.5)
             x = x - 0.5
-        
+
         t_hat = self.find_saddlepoint(x)
         
         K_t = self.cumulant_generating_function(t_hat)
@@ -302,7 +408,7 @@ class SaddlepointApproximation:
             Critical value
         continuity_correction : bool
             Whether to apply continuity correction (shifts v by -0.5
-            to account for discrete nature of the statistic)
+            for upper-tail P(H >= v) of discrete distributions)
 
         Returns
         -------
@@ -310,8 +416,9 @@ class SaddlepointApproximation:
             Approximate P(H >= v)
         """
         if continuity_correction:
-            # For discrete distributions, P(H >= v) is approximated by
-            # the continuous integral from v - 0.5 to infinity
+            # Standard upper-tail CC for discrete distributions: v - 0.5
+            # P(H >= v) ≈ P_continuous(H >= v - 0.5)
+            # (paper text writes +0.5 but table values match -0.5)
             v = v - 0.5
         
         mean = self.moments.get_mean()
@@ -382,30 +489,70 @@ class SaddlepointApproximation:
         if K2_t <= 0:
             return stats.gamma.sf(v, alpha, scale=beta)
         
-        # Find xi_hat using gamma CGF matching
-        # G(t_xi) - xi*t_xi = K_H(t_hat) - v*t_hat
-        
         target = K_t - v * t_hat
-        
-        def gamma_cgf(t, a, b):
-            if t < 1/b:
-                return -a * np.log(1 - b * t)
-            else:
-                return np.inf
-        
-        # Use gamma approximation
-        g_pdf = stats.gamma.pdf(v, alpha, scale=beta)
-        g_cdf = stats.gamma.cdf(v, alpha, scale=beta)
-        
-        # Correction term
-        u_hat = t_hat * np.sqrt(K2_t)
-        
-        if np.abs(u_hat) < 1e-10:
-            return 1 - g_cdf
-        
-        prob = 1 - g_cdf + g_pdf * (1/u_hat - 1/t_hat if np.abs(t_hat) > 1e-10 else 0)
-        
-        return np.clip(prob, 0, 1)
+
+        # For Gamma(alpha,beta):
+        # G(t) = -alpha*log(1-beta*t), G'(t)=xi => t_xi = 1/beta - alpha/xi
+        # Matching equation:
+        # G(t_xi) - xi*t_xi = target
+        # -> F(xi)=alpha*log(xi/(alpha*beta)) - xi/beta + alpha - target = 0
+        def f_xi(xi: float) -> float:
+            if xi <= 0:
+                return -np.inf
+            return alpha * np.log(xi / (alpha * beta)) - xi / beta + alpha - target
+
+        mean_g = alpha * beta
+        xi_hat = mean_g
+        found = False
+
+        # Right-side root (upper tail)
+        lo = max(mean_g * (1.0 + 1e-8), 1e-12)
+        hi = max(mean_g * 2.0, 1.0)
+        flo = f_xi(lo)
+        fhi = f_xi(hi)
+        for _ in range(80):
+            if np.isfinite(flo) and np.isfinite(fhi) and np.sign(flo) != np.sign(fhi):
+                xi_hat = brentq(f_xi, lo, hi, xtol=1e-10)
+                found = True
+                break
+            hi *= 2.0
+            fhi = f_xi(hi)
+
+        if not found:
+            # Left-side root fallback
+            lo = max(1e-12, mean_g * 1e-8)
+            hi = max(mean_g * (1.0 - 1e-8), lo * 2.0)
+            flo = f_xi(lo)
+            fhi = f_xi(hi)
+            for _ in range(80):
+                if np.isfinite(flo) and np.isfinite(fhi) and np.sign(flo) != np.sign(fhi):
+                    xi_hat = brentq(f_xi, lo, hi, xtol=1e-10)
+                    found = True
+                    break
+                lo = max(lo / 2.0, 1e-12)
+                flo = f_xi(lo)
+
+        if not np.isfinite(xi_hat) or xi_hat <= 0:
+            return stats.gamma.sf(v, alpha, scale=beta)
+
+        t_xi = 1.0 / beta - alpha / xi_hat
+        g_pdf = stats.gamma.pdf(xi_hat, alpha, scale=beta)
+        g_cdf = stats.gamma.cdf(xi_hat, alpha, scale=beta)
+
+        # G''(t_xi) for gamma CGF
+        denom = 1.0 - beta * t_xi
+        if abs(denom) < 1e-12:
+            return np.clip(1.0 - g_cdf, 0.0, 1.0)
+        G2_txi = alpha * beta**2 / (denom**2)
+        if G2_txi <= 0:
+            return np.clip(1.0 - g_cdf, 0.0, 1.0)
+
+        u_hat_xi = t_hat * np.sqrt(K2_t / G2_txi)
+        if np.abs(u_hat_xi) < 1e-10 or np.abs(t_xi) < 1e-10:
+            return np.clip(1.0 - g_cdf, 0.0, 1.0)
+
+        prob = 1.0 - g_cdf + g_pdf * (1.0 / u_hat_xi - 1.0 / t_xi)
+        return np.clip(prob, 0.0, 1.0)
     
     def cdf_approximation(self, x: float, method: str = 'LR', 
                           continuity_correction: bool = False) -> float:

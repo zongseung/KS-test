@@ -5,7 +5,8 @@ Computes raw moments, central moments, cumulants, and related statistics
 required for higher-order asymptotic approximations.
 
 Key improvement: For small samples, uses exact distribution to compute
-accurate moments rather than asymptotic formulas.
+accurate moments. For larger samples, estimates moments by simulation
+under H0 to obtain higher-order cumulants used in paper-style methods.
 
 References:
 - Murakami & Ha: Higher Order Asymptotic Approximations of Kruskal-Wallis Statistics
@@ -13,7 +14,6 @@ References:
 
 import numpy as np
 from typing import List, Tuple, Dict, Optional
-from scipy.special import comb, factorial
 from functools import lru_cache
 
 
@@ -24,7 +24,8 @@ class KWMoments:
     Under the null hypothesis, the distribution of H depends only on
     the sample sizes. This class computes exact moments using:
     1. Exact distribution enumeration (for small N <= 20)
-    2. Asymptotic formulas (for large N)
+    2. Simulation-based estimation (for larger N)
+    3. Asymptotic formulas (fallback)
     
     Parameters
     ----------
@@ -34,8 +35,17 @@ class KWMoments:
         Maximum moment order to compute (default: 6)
     use_exact : bool or None
         If True, use exact distribution for moments.
-        If False, use asymptotic formulas.
+        If False, use simulation-based moments by default.
         If None (default), auto-select based on sample size.
+    use_simulation_for_large_n : bool
+        If True (default), estimate moments by simulation when exact mode
+        is not used.
+    n_simulations : int
+        Number of simulations for moment estimation when
+        `use_simulation_for_large_n=True` (default: 50000).
+    simulation_seed : int or None
+        RNG seed for simulation-based moments. If None, uses a deterministic
+        seed based on sample sizes.
         
     Attributes
     ----------
@@ -49,12 +59,18 @@ class KWMoments:
         Dictionary of cumulants kappa_h for h = 1, ..., max_moment
     """
     
-    def __init__(self, sample_sizes: List[int], max_moment: int = 6, 
-                 use_exact: Optional[bool] = None):
+    def __init__(self, sample_sizes: List[int], max_moment: int = 6,
+                 use_exact: Optional[bool] = None,
+                 use_simulation_for_large_n: bool = True,
+                 n_simulations: int = 50000,
+                 simulation_seed: Optional[int] = None):
         self.sample_sizes = np.array(sample_sizes, dtype=int)
         self.k = len(sample_sizes)
         self.N = np.sum(self.sample_sizes)
         self.max_moment = max_moment
+        self.use_simulation_for_large_n = use_simulation_for_large_n
+        self.n_simulations = int(n_simulations)
+        self.simulation_seed = simulation_seed
         
         # Auto-select exact vs asymptotic based on k and N
         # For k>=4, exact computation explodes faster, so use stricter limit
@@ -77,6 +93,8 @@ class KWMoments:
         """Compute all moments up to max_moment order."""
         if self.use_exact:
             self._compute_moments_from_exact()
+        elif self.use_simulation_for_large_n and self.n_simulations > 0:
+            self._compute_moments_from_simulation()
         else:
             self._compute_moments_asymptotic()
         
@@ -102,6 +120,90 @@ class KWMoments:
                 self._raw_moments[h] = sum(
                     H_val**h * prob for H_val, prob in dist.items()
                 )
+
+    @staticmethod
+    def _deterministic_seed(sample_sizes: Tuple[int, ...],
+                            max_moment: int,
+                            n_simulations: int) -> int:
+        """Build a deterministic seed from configuration."""
+        seed = 1729 + 97 * max_moment + 3 * n_simulations
+        for i, n_i in enumerate(sample_sizes):
+            seed += (i + 1) * (n_i + 17) * 10007
+        return int(seed % (2**32 - 1))
+
+    @staticmethod
+    @lru_cache(maxsize=256)
+    def _simulate_raw_moments_cached(sample_sizes: Tuple[int, ...],
+                                     max_moment: int,
+                                     n_simulations: int,
+                                     seed: int) -> Tuple[float, ...]:
+        """
+        Estimate raw moments E[H^h] by Monte Carlo under H0.
+        """
+        n = np.array(sample_sizes, dtype=int)
+        N = int(np.sum(n))
+        k = len(sample_sizes)
+
+        if N <= 0 or k <= 1:
+            return tuple([1.0] + [0.0] * max_moment)
+
+        rng = np.random.default_rng(seed)
+        factor = 12.0 / (N * (N + 1.0))
+        constant = 3.0 * (N + 1.0)
+        starts = np.concatenate(([0], np.cumsum(n)[:-1]))
+        ends = np.cumsum(n)
+
+        sums = np.zeros(max_moment + 1, dtype=float)
+        sums[0] = float(n_simulations)
+
+        done = 0
+        target_elements = 2_000_000
+        batch = max(256, min(5000, target_elements // max(N, 1)))
+
+        while done < n_simulations:
+            b = min(batch, n_simulations - done)
+
+            # i.i.d. continuous draws induce random rank permutations
+            x = rng.random((b, N))
+            order = np.argsort(x, axis=1)
+            ranks = np.argsort(order, axis=1) + 1
+
+            term = np.zeros(b, dtype=float)
+            for gi in range(k):
+                rsum = np.sum(ranks[:, starts[gi]:ends[gi]], axis=1)
+                term += (rsum**2) / n[gi]
+
+            H = factor * term - constant
+            for h in range(1, max_moment + 1):
+                sums[h] += np.sum(H**h)
+
+            done += b
+
+        raw = [1.0]
+        for h in range(1, max_moment + 1):
+            raw.append(sums[h] / n_simulations)
+        return tuple(raw)
+
+    def _compute_moments_from_simulation(self):
+        """Compute moments by Monte Carlo under H0."""
+        sample_sizes_tuple = tuple(int(x) for x in self.sample_sizes.tolist())
+        if self.simulation_seed is None:
+            seed = self._deterministic_seed(sample_sizes_tuple, self.max_moment, self.n_simulations)
+        else:
+            seed = int(self.simulation_seed)
+
+        raw_tuple = self._simulate_raw_moments_cached(
+            sample_sizes_tuple,
+            self.max_moment,
+            self.n_simulations,
+            seed
+        )
+
+        for h, val in enumerate(raw_tuple):
+            self._raw_moments[h] = float(val)
+
+        # enforce known exact mean under H0
+        self._raw_moments[1] = float(self.k - 1)
     
     def _compute_moments_asymptotic(self):
         """Compute moments using asymptotic formulas (for large N)."""
@@ -378,6 +480,11 @@ class KWMoments:
         return alpha, beta
     
     def __repr__(self) -> str:
-        mode = "exact" if self.use_exact else "asymptotic"
+        if self.use_exact:
+            mode = "exact"
+        elif self.use_simulation_for_large_n and self.n_simulations > 0:
+            mode = "simulation"
+        else:
+            mode = "asymptotic"
         return (f"KWMoments(k={self.k}, N={self.N}, mode={mode}, "
                 f"mean={self.get_mean():.4f}, var={self.get_variance():.4f})")

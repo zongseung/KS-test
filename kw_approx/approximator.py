@@ -58,9 +58,9 @@ class KWApproximator:
     AVAILABLE_METHODS = [
         'chi_square',      # Traditional chi-square approximation (CHI)
         'saddlepoint',     # Saddlepoint SD1 (ER1 CGF) - Lugannani-Rice
-        'saddlepoint_sd2', # Saddlepoint SD2 (ER2 CGF) - Lugannani-Rice
+        'saddlepoint_sd2', # Saddlepoint SD2 (Wang CGF) - Lugannani-Rice
         'saddlepoint_cc',  # Saddlepoint with continuity correction (SDC1)
-        'saddlepoint_cc2', # Saddlepoint SD2 with continuity correction (SDC2)
+        'saddlepoint_cc2', # Saddlepoint SD2 (Wang) with continuity correction (SDC2)
         'saddlepoint_gamma',  # Gamma-based saddlepoint (Wood et al., 1993)
         'pam',             # Polynomial adjusted gamma PAG (degree 4)
         'pam6',            # Polynomial adjusted gamma PAG (degree 6)
@@ -96,7 +96,7 @@ class KWApproximator:
             )
         elif method == 'saddlepoint_sd2':
             self._methods[method] = SaddlepointApproximation(
-                self.sample_sizes, cgf_method='ER2'
+                self.sample_sizes, cgf_method='Wang'
             )
         elif method == 'saddlepoint_cc':
             self._methods[method] = SaddlepointApproximation(
@@ -104,7 +104,7 @@ class KWApproximator:
             )
         elif method == 'saddlepoint_cc2':
             self._methods[method] = SaddlepointApproximation(
-                self.sample_sizes, cgf_method='ER2'
+                self.sample_sizes, cgf_method='Wang'
             )
         elif method == 'saddlepoint_gamma':
             self._methods[method] = SaddlepointApproximation(
