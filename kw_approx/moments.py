@@ -20,13 +20,16 @@ from functools import lru_cache
 class KWMoments:
     """
     Computes moments and cumulants of the Kruskal-Wallis H statistic.
-    
+
     Under the null hypothesis, the distribution of H depends only on
-    the sample sizes. This class computes exact moments using:
-    1. Exact distribution enumeration (for small N <= 20)
+    the sample sizes. This class computes exact finite-sample moments using:
+    1. Exact distribution enumeration (for small N)
     2. Simulation-based estimation (for larger N)
-    3. Asymptotic formulas (fallback)
-    
+
+    Note: Asymptotic chi-square-based cumulants are NOT used.
+    Per paper Section 4, all approximation methods require exact
+    finite-sample cumulants κ₁,...,κ₄.
+
     Parameters
     ----------
     sample_sizes : List[int]
@@ -35,18 +38,14 @@ class KWMoments:
         Maximum moment order to compute (default: 6)
     use_exact : bool or None
         If True, use exact distribution for moments.
-        If False, use simulation-based moments by default.
+        If False, use simulation-based moments.
         If None (default), auto-select based on sample size.
-    use_simulation_for_large_n : bool
-        If True (default), estimate moments by simulation when exact mode
-        is not used.
     n_simulations : int
-        Number of simulations for moment estimation when
-        `use_simulation_for_large_n=True` (default: 50000).
+        Number of simulations for moment estimation (default: 50000).
     simulation_seed : int or None
         RNG seed for simulation-based moments. If None, uses a deterministic
         seed based on sample sizes.
-        
+
     Attributes
     ----------
     k : int
@@ -61,14 +60,12 @@ class KWMoments:
     
     def __init__(self, sample_sizes: List[int], max_moment: int = 6,
                  use_exact: Optional[bool] = None,
-                 use_simulation_for_large_n: bool = True,
                  n_simulations: int = 50000,
                  simulation_seed: Optional[int] = None):
         self.sample_sizes = np.array(sample_sizes, dtype=int)
         self.k = len(sample_sizes)
         self.N = np.sum(self.sample_sizes)
         self.max_moment = max_moment
-        self.use_simulation_for_large_n = use_simulation_for_large_n
         self.n_simulations = int(n_simulations)
         self.simulation_seed = simulation_seed
         
@@ -90,17 +87,20 @@ class KWMoments:
         self._compute_moments()
     
     def _compute_moments(self):
-        """Compute all moments up to max_moment order."""
+        """Compute all moments up to max_moment order.
+
+        Uses exact distribution for small samples and simulation otherwise.
+        Asymptotic chi-square-based cumulants are NOT used (see paper Section 4:
+        all methods require exact finite-sample cumulants κ₁,...,κ₄).
+        """
         if self.use_exact:
             self._compute_moments_from_exact()
-        elif self.use_simulation_for_large_n and self.n_simulations > 0:
-            self._compute_moments_from_simulation()
         else:
-            self._compute_moments_asymptotic()
-        
+            self._compute_moments_from_simulation()
+
         # Compute central moments from raw moments
         self._compute_central_moments()
-        
+
         # Compute cumulants from central moments
         self._compute_cumulants()
     
@@ -205,25 +205,6 @@ class KWMoments:
         # enforce known exact mean under H0
         self._raw_moments[1] = float(self.k - 1)
     
-    def _compute_moments_asymptotic(self):
-        """Compute moments using asymptotic formulas (for large N)."""
-        # Mean of H under H0: E[H] = k - 1
-        self._raw_moments[0] = 1.0
-        self._raw_moments[1] = float(self.k - 1)
-        
-        # Variance using exact formula
-        var = self._compute_variance_exact()
-        mu = self._raw_moments[1]
-        self._raw_moments[2] = var + mu**2
-        
-        # Pre-compute central moments 1 and 2 for higher moment calculations
-        self._central_moments[1] = 0.0
-        self._central_moments[2] = var
-        
-        # Higher moments using asymptotic approximations
-        for h in range(3, self.max_moment + 1):
-            self._raw_moments[h] = self._compute_raw_moment_asymptotic(h)
-    
     def _compute_variance_exact(self) -> float:
         """
         Compute exact variance of H under H0 using Wallace (1959) Eq. 6.2.
@@ -251,91 +232,6 @@ class KWMoments:
 
         return max(var, 1e-10)
     
-    def _compute_raw_moment_asymptotic(self, h: int) -> float:
-        """Compute E[H^h] for h >= 3 using asymptotic approximation."""
-        mu = self._raw_moments[1]
-        var = self._central_moments[2]
-        
-        # Use chi-square distribution as reference
-        # Chi-square(k-1) has moments that can be computed exactly
-        df = self.k - 1
-        
-        # For chi-square: E[X^h] can be computed from the MGF
-        # E[X^h] = 2^h * Γ(df/2 + h) / Γ(df/2)
-        from scipy.special import gamma as gamma_func
-        chi2_moment_h = 2**h * gamma_func(df/2 + h) / gamma_func(df/2)
-        
-        # Scale to match our variance
-        # If chi-square variance = 2*df, and our variance = var
-        # Then scale factor is sqrt(var / (2*df))
-        chi2_var = 2 * df
-        if chi2_var > 0 and var > 0:
-            scale = np.sqrt(var / chi2_var)
-        else:
-            scale = 1.0
-        
-        # Approximate raw moment by scaling chi-square moment
-        # and adjusting mean
-        if h == 3:
-            m3 = self._compute_central_moment_3_asymptotic()
-            return m3 + 3 * mu * var + mu**3
-        elif h == 4:
-            m3 = self._compute_central_moment_3_asymptotic()
-            m4 = self._compute_central_moment_4_asymptotic()
-            return m4 + 4 * mu * m3 + 6 * mu**2 * var + mu**4
-        elif h == 5:
-            m3 = self._compute_central_moment_3_asymptotic()
-            m4 = self._compute_central_moment_4_asymptotic()
-            m5 = self._compute_central_moment_5_asymptotic()
-            return m5 + 5 * mu * m4 + 10 * mu**2 * m3 + 10 * mu**3 * var + mu**5
-        elif h == 6:
-            m3 = self._compute_central_moment_3_asymptotic()
-            m4 = self._compute_central_moment_4_asymptotic()
-            m5 = self._compute_central_moment_5_asymptotic()
-            m6 = self._compute_central_moment_6_asymptotic()
-            return (m6 + 6 * mu * m5 + 15 * mu**2 * m4 + 
-                    20 * mu**3 * m3 + 15 * mu**4 * var + mu**6)
-        else:
-            # For very high moments, use scaled chi-square
-            return scale**h * chi2_moment_h
-    
-    def _compute_central_moment_3_asymptotic(self) -> float:
-        """Third central moment using asymptotic formula."""
-        var = self._central_moments[2]
-        df = self.k - 1
-        
-        # Chi-square skewness = sqrt(8/df), so m3 = skew * var^(3/2)
-        skew = np.sqrt(8.0 / df) if df > 0 else 0.0
-        return skew * var**(3/2)
-    
-    def _compute_central_moment_4_asymptotic(self) -> float:
-        """Fourth central moment using asymptotic formula."""
-        var = self._central_moments[2]
-        df = self.k - 1
-        
-        # Chi-square excess kurtosis = 12/df
-        kurt = 12.0 / df if df > 0 else 0.0
-        return (3 + kurt) * var**2
-    
-    def _compute_central_moment_5_asymptotic(self) -> float:
-        """Fifth central moment using asymptotic formula."""
-        var = self._central_moments[2]
-        m3 = self._compute_central_moment_3_asymptotic()
-        m4 = self._compute_central_moment_4_asymptotic()
-        
-        skew = m3 / var**(3/2) if var > 0 else 0
-        kurt = m4 / var**2 - 3 if var > 0 else 0
-        
-        # Approximate using relationship from gamma distribution
-        return skew * (kurt + 6) * var**(5/2) * 0.4
-    
-    def _compute_central_moment_6_asymptotic(self) -> float:
-        """Sixth central moment using asymptotic formula."""
-        var = self._central_moments[2]
-        m4 = self._compute_central_moment_4_asymptotic()
-        
-        kurt = m4 / var**2 - 3 if var > 0 else 0
-        return (15 + 10 * kurt + kurt**2) * var**3
     
     def _compute_central_moments(self):
         """Convert raw moments to central moments."""
@@ -476,11 +372,6 @@ class KWMoments:
         return alpha, beta
     
     def __repr__(self) -> str:
-        if self.use_exact:
-            mode = "exact"
-        elif self.use_simulation_for_large_n and self.n_simulations > 0:
-            mode = "simulation"
-        else:
-            mode = "asymptotic"
+        mode = "exact" if self.use_exact else "simulation"
         return (f"KWMoments(k={self.k}, N={self.N}, mode={mode}, "
                 f"mean={self.get_mean():.4f}, var={self.get_variance():.4f})")
