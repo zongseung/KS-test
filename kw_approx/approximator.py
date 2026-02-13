@@ -18,6 +18,9 @@ from .moments import KWMoments
 from .saddlepoint import SaddlepointApproximation
 from .exact import ExactDistribution
 from .simulation import MonteCarloSimulation
+from .edgeworth import EdgeworthApproximation
+from .gram_charlier import GramCharlierApproximation
+from .pam import PolynomialAdjustedGamma
 
 
 class KWApproximator:
@@ -48,6 +51,14 @@ class KWApproximator:
     # CGF methods with L-R tail probability
     CGF_METHODS = ['ER1', 'ER2', 'Wang', 'KT']
 
+    # Aliases for convenience (used in reproduce_paper_tables.py)
+    METHOD_ALIASES = {
+        'saddlepoint': 'ER1',
+        'saddlepoint_sd2': 'ER2',
+        'saddlepoint_cc': 'ER1_cc',
+        'saddlepoint_cc2': 'ER2_cc',
+    }
+
     AVAILABLE_METHODS = [
         'chi_square',   # Traditional chi-square approximation (baseline)
         'ER1',          # Easton-Ronchetti 1st CGF + Lugannani-Rice
@@ -58,6 +69,10 @@ class KWApproximator:
         'ER2_cc',       # ER2 with continuity correction
         'Wang_cc',      # Wang with continuity correction
         'KT_cc',        # KT with continuity correction
+        'edgeworth',    # Edgeworth expansion approximation
+        'gram_charlier', # Gram-Charlier Type A series
+        'pam',          # Polynomially adjusted gamma (degree=4)
+        'pam6',         # Polynomially adjusted gamma (degree=6)
         'exact',        # Exact combinatorial (small samples only)
         'simulation',   # Monte Carlo simulation
     ]
@@ -77,12 +92,18 @@ class KWApproximator:
         self._simulation = None
         self._n_simulations = 10000
 
+    def _resolve_method(self, method: str) -> str:
+        """Resolve method aliases to canonical names."""
+        return self.METHOD_ALIASES.get(method, method)
+
     def _get_cgf_method_name(self, method: str) -> str:
         """Extract CGF method name (e.g., 'ER1' from 'ER1_cc')."""
         return method.replace('_cc', '')
 
     def _get_method(self, method: str):
         """Get or initialize an approximation method."""
+        method = self._resolve_method(method)
+
         if method in self._methods:
             return self._methods[method]
 
@@ -104,6 +125,14 @@ class KWApproximator:
                     self.sample_sizes, n_simulations=self._n_simulations
                 )
             self._methods[method] = self._simulation
+        elif method == 'edgeworth':
+            self._methods[method] = EdgeworthApproximation(self.sample_sizes)
+        elif method == 'gram_charlier':
+            self._methods[method] = GramCharlierApproximation(self.sample_sizes)
+        elif method == 'pam':
+            self._methods[method] = PolynomialAdjustedGamma(self.sample_sizes, degree=4)
+        elif method == 'pam6':
+            self._methods[method] = PolynomialAdjustedGamma(self.sample_sizes, degree=6)
         else:
             raise ValueError(f"Unknown method: {method}. "
                            f"Available: {self.AVAILABLE_METHODS}")
@@ -126,6 +155,8 @@ class KWApproximator:
         float
             Approximate P(H >= h)
         """
+        method = self._resolve_method(method)
+
         if method == 'chi_square':
             return self.kw.chi_square_approximation(h)
 
@@ -143,6 +174,10 @@ class KWApproximator:
         elif method == 'simulation':
             sim = self._get_method(method)
             return sim.tail_probability(h)
+
+        elif method in ('edgeworth', 'gram_charlier', 'pam', 'pam6'):
+            obj = self._get_method(method)
+            return obj.tail_probability(h)
 
         else:
             raise ValueError(f"Unknown method: {method}")
@@ -181,6 +216,8 @@ class KWApproximator:
         float
             Approximate density f_H(h)
         """
+        method = self._resolve_method(method)
+
         if method == 'chi_square':
             return stats.chi2.pdf(h, self.k - 1)
 
@@ -194,6 +231,10 @@ class KWApproximator:
         elif method == 'exact':
             exact = self._get_method(method)
             return exact.pmf(h)
+
+        elif method in ('edgeworth', 'gram_charlier', 'pam', 'pam6'):
+            obj = self._get_method(method)
+            return obj.pdf(h)
 
         else:
             raise ValueError(f"Unknown method: {method}")
@@ -216,6 +257,8 @@ class KWApproximator:
         float
             Critical value c
         """
+        method = self._resolve_method(method)
+
         if method == 'chi_square':
             return stats.chi2.ppf(1 - alpha, self.k - 1)
 
@@ -230,6 +273,10 @@ class KWApproximator:
             exact = self._get_method(method)
             cv, exact_alpha = exact.critical_value(alpha)
             return cv
+
+        elif method in ('edgeworth', 'gram_charlier', 'pam', 'pam6'):
+            obj = self._get_method(method)
+            return obj.critical_value(alpha)
 
         else:
             raise ValueError(f"Unknown method: {method}")
