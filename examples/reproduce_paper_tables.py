@@ -164,39 +164,42 @@ def get_reference_critical_value(sample_sizes: list, alpha: float,
 
 def reproduce_table_4_1():
     """
-    Reproduce Table 4.1: Three groups, balanced (3, 3, 3), alpha = 0.10
+    Reproduce Table 4.1: Three groups, balanced (3, 3, 3), alpha = 0.10 and 0.05
     """
-    print_header("Table 4.1: Three groups, balanced (3, 3, 3), alpha = 0.10")
+    print_header("Table 4.1: Three groups, balanced (3, 3, 3), alpha = 0.10 and 0.05")
 
     sample_sizes = [3, 3, 3]
-    H = 4.62222  # Exact 10% critical value from paper
 
     print(f"\nSample sizes: n1={sample_sizes[0]}, n2={sample_sizes[1]}, n3={sample_sizes[2]}")
     print(f"Total N = {sum(sample_sizes)}, k = {len(sample_sizes)}")
-    print(f"Critical value P (E-Q) = {H}")
 
     approx = KWApproximator(sample_sizes)
 
-    headers = ["n1,n2,n3", "P(E-Q)", "E-P", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)", "PAG(6)"]
-    widths = [12, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10]
+    for alpha in [0.10, 0.05]:
+        print(f"\n--- alpha = {alpha} ---")
 
-    print(f"\n{'-'*112}")
-    print_table_row(headers, widths)
-    print(f"{'-'*112}")
+        H, ref_alpha, source = get_reference_critical_value(sample_sizes, alpha, n_simulations=10000)
 
-    exact_p = approx.tail_probability(H, 'exact')
-    sd1 = approx.tail_probability(H, 'saddlepoint')
-    sd2 = approx.tail_probability(H, 'saddlepoint_sd2')
-    sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
-    sdc2 = approx.tail_probability(H, 'saddlepoint_cc2')
-    ed = approx.tail_probability(H, 'edgeworth')
-    gc_a = approx.tail_probability(H, 'gram_charlier')
-    pag4 = approx.tail_probability(H, 'pam')
-    pag6 = approx.tail_probability(H, 'pam6')
+        headers = ["n1,n2,n3", "E-Q", "E-P", "SRC", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)", "PAG(6)"]
+        widths = [12, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10]
 
-    values = ["3,3,3", H, exact_p, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4, pag6]
-    print_table_row(values, widths)
-    print(f"{'-'*112}")
+        print(f"\n{'-'*118}")
+        print_table_row(headers, widths)
+        print(f"{'-'*118}")
+
+        sd1 = approx.tail_probability(H, 'saddlepoint')
+        sd2 = approx.tail_probability(H, 'saddlepoint_sd2')
+        sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
+        sdc2 = approx.tail_probability(H, 'saddlepoint_cc2')
+        ed = approx.tail_probability(H, 'edgeworth')
+        gc_a = approx.tail_probability(H, 'gram_charlier')
+        pag4 = approx.tail_probability(H, 'pam')
+        pag6 = approx.tail_probability(H, 'pam6')
+
+        src_label = {"exact": "E", "simulation": "S", "chi_square": "C"}[source]
+        values = ["3,3,3", H, ref_alpha, src_label, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4, pag6]
+        print_table_row(values, widths)
+        print(f"{'-'*118}")
 
 
 def reproduce_tables_4_2_4_3():
@@ -265,81 +268,79 @@ def reproduce_table_4_4():
     # Larger balanced three-group designs
     n_values = [15, 20, 25, 30, 40, 50]
 
-    print("\n--- alpha = 0.10 ---\n")
+    for alpha in [0.10, 0.05]:
+        print(f"\n--- alpha = {alpha} ---\n")
 
-    headers = ["n1,n2,n3", "N", "SIM-CV", "SIM", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)", "PAG(6)"]
-    widths = [12, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10]
+        headers = ["n1,n2,n3", "N", "SIM-CV", "SIM", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)", "PAG(6)"]
+        widths = [12, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10]
 
-    print_table_row(headers, widths)
-    print("-" * 134)
+        print_table_row(headers, widths)
+        print("-" * 134)
 
-    alpha = 0.10
+        for n in n_values:
+            sample_sizes = [n, n, n]
+            N = sum(sample_sizes)
 
-    for n in n_values:
-        sample_sizes = [n, n, n]
-        N = sum(sample_sizes)
+            approx = KWApproximator(sample_sizes)
 
-        approx = KWApproximator(sample_sizes)
+            # Use simulation as reference for larger N (following paper Table 4.4)
+            H, ref_alpha, source = get_reference_critical_value(sample_sizes, alpha, n_simulations=10000)
 
-        # Use simulation as reference for larger N (following paper Table 4.4)
-        H, ref_alpha, source = get_reference_critical_value(sample_sizes, alpha, n_simulations=10000)
+            chi = approx.tail_probability(H, 'chi_square')
+            sd1 = approx.tail_probability(H, 'saddlepoint')
+            sd2 = approx.tail_probability(H, 'saddlepoint_sd2')
+            sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
+            sdc2 = approx.tail_probability(H, 'saddlepoint_cc2')
+            ed = approx.tail_probability(H, 'edgeworth')
+            gc_a = approx.tail_probability(H, 'gram_charlier')
+            pag4 = approx.tail_probability(H, 'pam')
+            pag6 = approx.tail_probability(H, 'pam6')
 
-        chi = approx.tail_probability(H, 'chi_square')
-        sd1 = approx.tail_probability(H, 'saddlepoint')
-        sd2 = approx.tail_probability(H, 'saddlepoint_sd2')
-        sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
-        sdc2 = approx.tail_probability(H, 'saddlepoint_cc2')
-        ed = approx.tail_probability(H, 'edgeworth')
-        gc_a = approx.tail_probability(H, 'gram_charlier')
-        pag4 = approx.tail_probability(H, 'pam')
-        pag6 = approx.tail_probability(H, 'pam6')
+            config = f"{n},{n},{n}"
+            values = [config, N, H, ref_alpha, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4, pag6]
+            print_table_row(values, widths)
 
-        config = f"{n},{n},{n}"
-        values = [config, N, H, ref_alpha, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4, pag6]
-        print_table_row(values, widths)
-
-    print("-" * 134)
+        print("-" * 134)
 
 
 def reproduce_table_4_5():
     """
     Reproduce Table 4.5: Four groups, (3, 2, 2, 5), alpha = 0.10
     """
-    print_header("Table 4.5: Four groups (3, 2, 2, 5), alpha = 0.10")
+    print_header("Table 4.5: Four groups (3, 2, 2, 5), alpha = 0.10 and 0.05")
 
     sample_sizes = [3, 2, 2, 5]
-    H = 5.587179
 
     print(f"\nSample sizes: {sample_sizes}")
     print(f"Total N = {sum(sample_sizes)}, k = {len(sample_sizes)}")
-    print(f"Test statistic H = {H}")
 
     approx = KWApproximator(sample_sizes)
 
-    headers = ["Config", "E-P/Sim", "SD1", "SD2", "SDC1", "SDC2", "CHI", "PAG(4)", "PAG(6)"]
-    widths = [14, 10, 10, 10, 10, 10, 10, 10, 10]
+    for alpha in [0.10, 0.05]:
+        print(f"\n--- alpha = {alpha} ---\n")
 
-    print(f"\n{'-'*94}")
-    print_table_row(headers, widths)
-    print(f"{'-'*94}")
+        # Get reference critical value
+        H, ref_alpha, source = get_reference_critical_value(sample_sizes, alpha, n_simulations=10000)
 
-    exact_p = approx.tail_probability(H, 'exact')
-    sd1 = approx.tail_probability(H, 'saddlepoint')
-    sd2 = approx.tail_probability(H, 'saddlepoint_sd2')
-    sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
-    sdc2 = approx.tail_probability(H, 'saddlepoint_cc2')
-    chi = approx.tail_probability(H, 'chi_square')
-    pag4 = approx.tail_probability(H, 'pam')
-    pag6 = approx.tail_probability(H, 'pam6')
+        headers = ["Config", "E-Q", "E-P", "SRC", "SD1", "SD2", "SDC1", "SDC2", "CHI", "PAG(4)", "PAG(6)"]
+        widths = [14, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10]
 
-    values = ["3,2,2,5", exact_p, sd1, sd2, sdc1, sdc2, chi, pag4, pag6]
-    print_table_row(values, widths)
-    print(f"{'-'*94}")
+        print(f"{'-'*110}")
+        print_table_row(headers, widths)
+        print(f"{'-'*110}")
 
-    # Paper reference
-    print("\nPaper reference values:")
-    print(f"  SD1: 0.105404 (Code: {sd1:.6f}) {'OK' if abs(sd1 - 0.105404) < 0.001 else 'DIFF'}")
-    print(f"  CHI: 0.133516 (Code: {chi:.6f}) {'OK' if abs(chi - 0.133516) < 0.001 else 'DIFF'}")
+        sd1 = approx.tail_probability(H, 'saddlepoint')
+        sd2 = approx.tail_probability(H, 'saddlepoint_sd2')
+        sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
+        sdc2 = approx.tail_probability(H, 'saddlepoint_cc2')
+        chi = approx.tail_probability(H, 'chi_square')
+        pag4 = approx.tail_probability(H, 'pam')
+        pag6 = approx.tail_probability(H, 'pam6')
+
+        src_label = {"exact": "E", "simulation": "S", "chi_square": "C"}[source]
+        values = ["3,2,2,5", H, ref_alpha, src_label, sd1, sd2, sdc1, sdc2, chi, pag4, pag6]
+        print_table_row(values, widths)
+        print(f"{'-'*110}")
 
 
 def reproduce_tables_4_6_4_7():
