@@ -23,6 +23,9 @@ from .saddlepoint import SaddlepointApproximation
 from .exact import ExactDistribution
 from .simulation import MonteCarloSimulation
 from .approximator import KWApproximator
+from .pam import PolynomialAdjustedGamma
+from .gram_charlier import GramCharlierApproximation
+from .edgeworth import EdgeworthApproximation
 
 __version__ = "0.3.0"
 __author__ = "Based on Murakami, Lee & Ha (2026)"
@@ -34,4 +37,7 @@ __all__ = [
     "ExactDistribution",
     "MonteCarloSimulation",
     "KWApproximator",
+    "PolynomialAdjustedGamma",
+    "GramCharlierApproximation",
+    "EdgeworthApproximation",
 ]
