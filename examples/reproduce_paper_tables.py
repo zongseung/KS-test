@@ -177,12 +177,12 @@ def reproduce_table_4_1():
 
     approx = KWApproximator(sample_sizes)
 
-    headers = ["n1,n2,n3", "P(E-Q)", "E-P", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)"]
-    widths = [12, 10, 10, 10, 10, 10, 10, 10, 10, 10]
+    headers = ["n1,n2,n3", "P(E-Q)", "E-P", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)", "PAG(6)"]
+    widths = [12, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10]
 
-    print(f"\n{'-'*102}")
+    print(f"\n{'-'*112}")
     print_table_row(headers, widths)
-    print(f"{'-'*102}")
+    print(f"{'-'*112}")
 
     exact_p = approx.tail_probability(H, 'exact')
     sd1 = approx.tail_probability(H, 'saddlepoint')
@@ -192,10 +192,11 @@ def reproduce_table_4_1():
     ed = approx.tail_probability(H, 'edgeworth')
     gc_a = approx.tail_probability(H, 'gram_charlier')
     pag4 = approx.tail_probability(H, 'pam')
+    pag6 = approx.tail_probability(H, 'pam6')
 
-    values = ["3,3,3", H, exact_p, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4]
+    values = ["3,3,3", H, exact_p, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4, pag6]
     print_table_row(values, widths)
-    print(f"{'-'*102}")
+    print(f"{'-'*112}")
 
 
 def reproduce_tables_4_2_4_3():
@@ -216,11 +217,11 @@ def reproduce_tables_4_2_4_3():
     for alpha in [0.10, 0.05]:
         print(f"\n--- alpha = {alpha} ---\n")
 
-        headers = ["n1,n2,n3", "N", "E-Q", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)"]
-        widths = [12, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10]
+        headers = ["n1,n2,n3", "N", "E-Q", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)", "PAG(6)"]
+        widths = [12, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10]
 
         print_table_row(headers, widths)
-        print("-" * 130)
+        print("-" * 140)
 
         for n in n_values:
             sample_sizes = [n, n, n]
@@ -240,14 +241,15 @@ def reproduce_tables_4_2_4_3():
             ed = approx.tail_probability(H, 'edgeworth')
             gc_a = approx.tail_probability(H, 'gram_charlier')
             pag4 = approx.tail_probability(H, 'pam')
+            pag6 = approx.tail_probability(H, 'pam6')
 
             config = f"{n},{n},{n}"
             # Source indicator: E=exact, S=simulation, C=chi-square
             src_label = {"exact": "E", "simulation": "S", "chi_square": "C"}[source]
-            values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4]
+            values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4, pag6]
             print_table_row(values, widths)
 
-        print("-" * 130)
+        print("-" * 140)
         print("  SRC: E=Exact, S=Simulation (10,000 iterations), C=Chi-square")
 
 
@@ -265,11 +267,11 @@ def reproduce_table_4_4():
 
     print("\n--- alpha = 0.10 ---\n")
 
-    headers = ["n1,n2,n3", "N", "SIM-CV", "SIM", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)"]
-    widths = [12, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10]
+    headers = ["n1,n2,n3", "N", "SIM-CV", "SIM", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)", "PAG(6)"]
+    widths = [12, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10]
 
     print_table_row(headers, widths)
-    print("-" * 124)
+    print("-" * 134)
 
     alpha = 0.10
 
@@ -290,12 +292,13 @@ def reproduce_table_4_4():
         ed = approx.tail_probability(H, 'edgeworth')
         gc_a = approx.tail_probability(H, 'gram_charlier')
         pag4 = approx.tail_probability(H, 'pam')
+        pag6 = approx.tail_probability(H, 'pam6')
 
         config = f"{n},{n},{n}"
-        values = [config, N, H, ref_alpha, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4]
+        values = [config, N, H, ref_alpha, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4, pag6]
         print_table_row(values, widths)
 
-    print("-" * 124)
+    print("-" * 134)
 
 
 def reproduce_table_4_5():
@@ -313,12 +316,12 @@ def reproduce_table_4_5():
 
     approx = KWApproximator(sample_sizes)
 
-    headers = ["Config", "E-P/Sim", "SD1", "SD2", "SDC1", "SDC2", "CHI", "PAG(4)"]
-    widths = [14, 10, 10, 10, 10, 10, 10, 10]
+    headers = ["Config", "E-P/Sim", "SD1", "SD2", "SDC1", "SDC2", "CHI", "PAG(4)", "PAG(6)"]
+    widths = [14, 10, 10, 10, 10, 10, 10, 10, 10]
 
-    print(f"\n{'-'*84}")
+    print(f"\n{'-'*94}")
     print_table_row(headers, widths)
-    print(f"{'-'*84}")
+    print(f"{'-'*94}")
 
     exact_p = approx.tail_probability(H, 'exact')
     sd1 = approx.tail_probability(H, 'saddlepoint')
@@ -327,10 +330,11 @@ def reproduce_table_4_5():
     sdc2 = approx.tail_probability(H, 'saddlepoint_cc2')
     chi = approx.tail_probability(H, 'chi_square')
     pag4 = approx.tail_probability(H, 'pam')
+    pag6 = approx.tail_probability(H, 'pam6')
 
-    values = ["3,2,2,5", exact_p, sd1, sd2, sdc1, sdc2, chi, pag4]
+    values = ["3,2,2,5", exact_p, sd1, sd2, sdc1, sdc2, chi, pag4, pag6]
     print_table_row(values, widths)
-    print(f"{'-'*84}")
+    print(f"{'-'*94}")
 
     # Paper reference
     print("\nPaper reference values:")
@@ -365,11 +369,11 @@ def reproduce_tables_4_6_4_7():
     for alpha in [0.10, 0.05]:
         print(f"\n--- alpha = {alpha} ---\n")
 
-        headers = ["Config", "N", "E-Q", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)"]
-        widths = [14, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10]
+        headers = ["Config", "N", "E-Q", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)", "PAG(6)"]
+        widths = [14, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10]
 
         print_table_row(headers, widths)
-        print("-" * 132)
+        print("-" * 142)
 
         for sample_sizes in configs:
             N = sum(sample_sizes)
@@ -387,14 +391,15 @@ def reproduce_tables_4_6_4_7():
             ed = approx.tail_probability(H, 'edgeworth')
             gc_a = approx.tail_probability(H, 'gram_charlier')
             pag4 = approx.tail_probability(H, 'pam')
+            pag6 = approx.tail_probability(H, 'pam6')
 
             config = ','.join(map(str, sample_sizes))
             # Source indicator: E=exact, S=simulation, C=chi-square
             src_label = {"exact": "E", "simulation": "S", "chi_square": "C"}[source]
-            values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4]
+            values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4, pag6]
             print_table_row(values, widths)
 
-        print("-" * 132)
+        print("-" * 142)
         print("  SRC: E=Exact, S=Simulation (10,000 iterations), C=Chi-square")
 
 
@@ -414,11 +419,11 @@ def generate_random_three_group_designs(n_designs: int = 10):
     """
     print_header(f"Random Three-Group Designs (n={n_designs})")
 
-    headers = ["Config", "N", "H(10%)", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)"]
-    widths = [14, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10]
+    headers = ["Config", "N", "H(10%)", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)", "PAG(6)"]
+    widths = [14, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10]
 
     print_table_row(headers, widths)
-    print("-" * 132)
+    print("-" * 142)
 
     for i in range(n_designs):
         # Generate random sample sizes (between 2 and 10 for each group)
@@ -442,14 +447,15 @@ def generate_random_three_group_designs(n_designs: int = 10):
         ed = approx.tail_probability(H, 'edgeworth')
         gc_a = approx.tail_probability(H, 'gram_charlier')
         pag4 = approx.tail_probability(H, 'pam')
+        pag6 = approx.tail_probability(H, 'pam6')
 
         config = f"{n1},{n2},{n3}"
         # Source indicator: E=exact, S=simulation, C=chi-square
         src_label = {"exact": "E", "simulation": "S", "chi_square": "C"}[source]
-        values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4]
+        values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4, pag6]
         print_table_row(values, widths)
 
-    print("-" * 132)
+    print("-" * 142)
     print("  SRC: E=Exact, S=Simulation (10,000 iterations), C=Chi-square")
     print("  E-P: Reference tail probability at H(10%)")
 
@@ -470,11 +476,11 @@ def generate_random_four_group_designs(n_designs: int = 10):
     """
     print_header(f"Random Four-Group Designs (n={n_designs})")
 
-    headers = ["Config", "N", "H(10%)", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)"]
-    widths = [16, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10]
+    headers = ["Config", "N", "H(10%)", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)", "PAG(6)"]
+    widths = [16, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10]
 
     print_table_row(headers, widths)
-    print("-" * 134)
+    print("-" * 144)
 
     for i in range(n_designs):
         # Generate random sample sizes (between 2 and 8 for each group)
@@ -499,14 +505,15 @@ def generate_random_four_group_designs(n_designs: int = 10):
         ed = approx.tail_probability(H, 'edgeworth')
         gc_a = approx.tail_probability(H, 'gram_charlier')
         pag4 = approx.tail_probability(H, 'pam')
+        pag6 = approx.tail_probability(H, 'pam6')
 
         config = f"{n1},{n2},{n3},{n4}"
         # Source indicator: E=exact, S=simulation, C=chi-square
         src_label = {"exact": "E", "simulation": "S", "chi_square": "C"}[source]
-        values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4]
+        values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4, pag6]
         print_table_row(values, widths)
 
-    print("-" * 134)
+    print("-" * 144)
     print("  SRC: E=Exact, S=Simulation (10,000 iterations), C=Chi-square")
     print("  E-P: Reference tail probability at H(10%)")
 
@@ -529,11 +536,11 @@ def generate_random_k_group_designs(k: int = 5, n_designs: int = 10):
     """
     print_header(f"Random {k}-Group Designs (n={n_designs})")
 
-    headers = ["Config", "N", "H(10%)", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)"]
-    widths = [20, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10]
+    headers = ["Config", "N", "H(10%)", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)", "PAG(6)"]
+    widths = [20, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10]
 
     print_table_row(headers, widths)
-    print("-" * 138)
+    print("-" * 148)
 
     for i in range(n_designs):
         # Generate random sample sizes (between 2 and 6 for each group)
@@ -554,14 +561,15 @@ def generate_random_k_group_designs(k: int = 5, n_designs: int = 10):
         ed = approx.tail_probability(H, 'edgeworth')
         gc_a = approx.tail_probability(H, 'gram_charlier')
         pag4 = approx.tail_probability(H, 'pam')
+        pag6 = approx.tail_probability(H, 'pam6')
 
         config = ','.join(map(str, sample_sizes))
         # Source indicator: E=exact, S=simulation, C=chi-square
         src_label = {"exact": "E", "simulation": "S", "chi_square": "C"}[source]
-        values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4]
+        values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4, pag6]
         print_table_row(values, widths)
 
-    print("-" * 138)
+    print("-" * 148)
     print("  SRC: E=Exact, S=Simulation (10,000 iterations), C=Chi-square")
     print("  E-P: Reference tail probability at H(10%)")
 
@@ -630,11 +638,11 @@ def comprehensive_random_study(n_per_category: int = 5):
     # Now compute results for all
     print_header("Results for All Random Designs (alpha = 0.10)")
 
-    headers = ["Category", "Config", "N", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)"]
-    widths = [10, 18, 6, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10]
+    headers = ["Category", "Config", "N", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)", "PAG(6)"]
+    widths = [10, 18, 6, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10]
 
     print_table_row(headers, widths)
-    print("-" * 136)
+    print("-" * 146)
 
     for category, sample_sizes in all_results:
         N = sum(sample_sizes)
@@ -652,15 +660,16 @@ def comprehensive_random_study(n_per_category: int = 5):
         ed = approx.tail_probability(H, 'edgeworth')
         gc_a = approx.tail_probability(H, 'gram_charlier')
         pag4 = approx.tail_probability(H, 'pam')
+        pag6 = approx.tail_probability(H, 'pam6')
 
         config = ','.join(map(str, sample_sizes))
         # Source indicator: E=exact, S=simulation, C=chi-square
         src_label = {"exact": "E", "simulation": "S", "chi_square": "C"}[source]
 
-        values = [category, config, N, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4]
+        values = [category, config, N, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4, pag6]
         print_table_row(values, widths)
 
-    print("-" * 136)
+    print("-" * 146)
     print("  SRC: E=Exact, S=Simulation (10,000 iterations), C=Chi-square")
     print("  E-P: Reference tail probability at H(10%)")
 
