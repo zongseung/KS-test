@@ -51,12 +51,19 @@ class KWApproximator:
     # CGF methods with L-R tail probability
     CGF_METHODS = ['ER1', 'ER2', 'Wang', 'KT']
 
-    # Aliases for convenience (used in reproduce_paper_tables.py)
+    # Aliases for convenience.
+    # Paper Section 4.1: SD1=K_ER1+LR, SD2=K_W(Wang)+LR
+    # SDC1=SD1+CC, SDC2=SD2+CC
     METHOD_ALIASES = {
         'saddlepoint': 'ER1',
-        'saddlepoint_sd2': 'ER2',
+        'saddlepoint_sd2': 'Wang',
         'saddlepoint_cc': 'ER1_cc',
-        'saddlepoint_cc2': 'ER2_cc',
+        'saddlepoint_cc2': 'Wang_cc',
+        # Paper table notation
+        'SD1': 'ER1',
+        'SD2': 'Wang',
+        'SDC1': 'ER1_cc',
+        'SDC2': 'Wang_cc',
     }
 
     AVAILABLE_METHODS = [

@@ -247,11 +247,19 @@ class SaddlepointApproximation:
             f = kappa[3] * t**3 / 6 + kappa[4] * t**4 / 24
             fp = kappa[3] * t**2 / 2 + kappa[4] * t**3 / 6
             return kappa[1] + kappa[2] * t + fp * eta + f * d_eta
-        
+
+        elif self.cgf_method == 'KT':
+            # K_KT(t) = κ₁t + ((1+κ₂)/2)t² + (κ₃/6)t³ + (κ₄/24)t⁴
+            # K'_KT(t) = κ₁ + (1+κ₂)t + (κ₃/2)t² + (κ₄/6)t³
+            return (kappa[1] +
+                    (1 + kappa[2]) * t +
+                    kappa[3] * t**2 / 2 +
+                    kappa[4] * t**3 / 6)
+
         else:
-            return (kappa[1] + 
-                    kappa[2] * t + 
-                    kappa[3] * t**2 / 2 + 
+            return (kappa[1] +
+                    kappa[2] * t +
+                    kappa[3] * t**2 / 2 +
                     kappa[4] * t**3 / 6)
     
     def cgf_derivative2(self, t: float) -> float:
@@ -272,10 +280,14 @@ class SaddlepointApproximation:
         
         if self.cgf_method in ['ER1', 'exact']:
             return kappa[2] + kappa[3] * t + kappa[4] * t**2 / 2
+        elif self.cgf_method == 'KT':
+            # K_KT(t) = κ₁t + ((1+κ₂)/2)t² + (κ₃/6)t³ + (κ₄/24)t⁴
+            # K''_KT(t) = (1+κ₂) + κ₃t + (κ₄/2)t²
+            return (1 + kappa[2]) + kappa[3] * t + kappa[4] * t**2 / 2
         elif self.cgf_method == 'Wang':
             p = self._get_wang_p()
             return self._wang_second_derivative(t, p)
-        
+
         else:
             # Numerical derivative as fallback
             h = 1e-6
@@ -373,18 +385,25 @@ class SaddlepointApproximation:
             Approximate density f_H(x)
         """
         if continuity_correction:
-            # Standard upper-tail CC for discrete distributions: x - 0.5
-            # (paper text writes +0.5 but table values match -0.5)
+            # Continuity correction for discrete distributions.
+            #
+            # The paper (Section 3.2, p.16) writes "replace x by x + 1/2",
+            # but this is inconsistent with:
+            #   (a) Standard CC convention: P(H >= v) ~ P_cont(H >= v - 0.5)
+            #       (Butler, 2007, "Saddlepoint Approximations with Applications")
+            #   (b) The paper's own Table 4.1: SDC1=0.124 > E-P=0.10, which
+            #       matches v - 0.5 (increases tail prob), not v + 0.5.
+            # Conclusion: the paper text likely has a sign typo. We use v - 0.5.
             x = x - 0.5
 
         t_hat = self.find_saddlepoint(x)
-        
+
         K_t = self.cumulant_generating_function(t_hat)
         K2_t = self.cgf_derivative2(t_hat)
-        
+
         if K2_t <= 0:
             return 0.0
-        
+
         density = np.sqrt(1 / (2 * np.pi * K2_t)) * np.exp(K_t - x * t_hat)
         
         return max(density, 0.0)
@@ -416,9 +435,10 @@ class SaddlepointApproximation:
             Approximate P(H >= v)
         """
         if continuity_correction:
-            # Standard upper-tail CC for discrete distributions: v - 0.5
-            # P(H >= v) ≈ P_continuous(H >= v - 0.5)
-            # (paper text writes +0.5 but table values match -0.5)
+            # Continuity correction for discrete distributions.
+            # See detailed note in density_approximation() above.
+            # Paper text says v + 0.5 but standard CC and paper tables
+            # both confirm v - 0.5 is correct.
             v = v - 0.5
         
         mean = self.moments.get_mean()
