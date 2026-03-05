@@ -392,14 +392,14 @@ class TestKWApproximator:
         # Small sample -> exact
         approx = KWApproximator([3, 3, 3])
         assert approx.recommend_method() == 'exact'
-        
-        # Medium sample -> pam6
+
+        # Medium sample -> ER1 (saddlepoint)
         approx = KWApproximator([8, 8, 8])
-        assert approx.recommend_method() == 'pam6'
-        
-        # Large sample -> saddlepoint
+        assert approx.recommend_method() == 'ER1'
+
+        # Large sample -> ER1 (saddlepoint)
         approx = KWApproximator([50, 50, 50])
-        assert approx.recommend_method() == 'saddlepoint'
+        assert approx.recommend_method() == 'ER1'
 
 
 class TestPaperExamples:
