@@ -180,12 +180,13 @@ def reproduce_table_4_1():
 
         H, ref_alpha, source = get_reference_critical_value(sample_sizes, alpha, n_simulations=10000)
 
-        headers = ["n1,n2,n3", "E-Q", "E-P", "SRC", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)", "PAG(6)"]
-        widths = [12, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10]
+        # Paper Table 4.1: no CHI column, no PAG(6)
+        headers = ["n1,n2,n3", "E-Q", "E-P", "SRC", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)"]
+        widths = [12, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10]
 
-        print(f"\n{'-'*118}")
+        print(f"\n{'-'*108}")
         print_table_row(headers, widths)
-        print(f"{'-'*118}")
+        print(f"{'-'*108}")
 
         sd1 = approx.tail_probability(H, 'saddlepoint')
         sd2 = approx.tail_probability(H, 'saddlepoint_sd2')
@@ -194,12 +195,11 @@ def reproduce_table_4_1():
         ed = approx.tail_probability(H, 'edgeworth')
         gc_a = approx.tail_probability(H, 'gram_charlier')
         pag4 = approx.tail_probability(H, 'pam')
-        pag6 = approx.tail_probability(H, 'pam6')
 
         src_label = {"exact": "E", "simulation": "S", "chi_square": "C"}[source]
-        values = ["3,3,3", H, ref_alpha, src_label, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4, pag6]
+        values = ["3,3,3", H, ref_alpha, src_label, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4]
         print_table_row(values, widths)
-        print(f"{'-'*118}")
+        print(f"{'-'*108}")
 
 
 def reproduce_tables_4_2_4_3():
@@ -220,11 +220,12 @@ def reproduce_tables_4_2_4_3():
     for alpha in [0.10, 0.05]:
         print(f"\n--- alpha = {alpha} ---\n")
 
-        headers = ["n1,n2,n3", "N", "E-Q", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)", "PAG(6)"]
-        widths = [12, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10]
+        # Paper Tables 4.2-4.3: CHI, SD1, SD2, SDC1, SDC2, ED, GC-A, PAG(4) only
+        headers = ["n1,n2,n3", "N", "E-Q", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)"]
+        widths = [12, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10]
 
         print_table_row(headers, widths)
-        print("-" * 140)
+        print("-" * 128)
 
         for n in n_values:
             sample_sizes = [n, n, n]
@@ -244,15 +245,13 @@ def reproduce_tables_4_2_4_3():
             ed = approx.tail_probability(H, 'edgeworth')
             gc_a = approx.tail_probability(H, 'gram_charlier')
             pag4 = approx.tail_probability(H, 'pam')
-            pag6 = approx.tail_probability(H, 'pam6')
 
             config = f"{n},{n},{n}"
-            # Source indicator: E=exact, S=simulation, C=chi-square
             src_label = {"exact": "E", "simulation": "S", "chi_square": "C"}[source]
-            values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4, pag6]
+            values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4]
             print_table_row(values, widths)
 
-        print("-" * 140)
+        print("-" * 128)
         print("  SRC: E=Exact, S=Simulation (10,000 iterations), C=Chi-square")
 
 
@@ -271,11 +270,12 @@ def reproduce_table_4_4():
     for alpha in [0.10, 0.05]:
         print(f"\n--- alpha = {alpha} ---\n")
 
-        headers = ["n1,n2,n3", "N", "SIM-CV", "SIM", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)", "PAG(6)"]
-        widths = [12, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10]
+        # Paper Tables 4-5 (Table 4.4): CHI, SD1, SD2, SDC1, SDC2, ED, GC-A, PAG(4) only
+        headers = ["n1,n2,n3", "N", "SIM-CV", "SIM", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)"]
+        widths = [12, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10]
 
         print_table_row(headers, widths)
-        print("-" * 134)
+        print("-" * 124)
 
         for n in n_values:
             sample_sizes = [n, n, n]
@@ -294,13 +294,12 @@ def reproduce_table_4_4():
             ed = approx.tail_probability(H, 'edgeworth')
             gc_a = approx.tail_probability(H, 'gram_charlier')
             pag4 = approx.tail_probability(H, 'pam')
-            pag6 = approx.tail_probability(H, 'pam6')
 
             config = f"{n},{n},{n}"
-            values = [config, N, H, ref_alpha, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4, pag6]
+            values = [config, N, H, ref_alpha, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4]
             print_table_row(values, widths)
 
-        print("-" * 134)
+        print("-" * 124)
 
 
 def reproduce_table_4_5():
@@ -322,25 +321,28 @@ def reproduce_table_4_5():
         # Get reference critical value
         H, ref_alpha, source = get_reference_critical_value(sample_sizes, alpha, n_simulations=10000)
 
-        headers = ["Config", "E-Q", "E-P", "SRC", "SD1", "SD2", "SDC1", "SDC2", "CHI", "PAG(4)", "PAG(6)"]
-        widths = [14, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10]
+        # Paper Table 6 (Table 4.5): SD1, SD2, SDC1, SDC2, CHI, PAG(4) only (no PAG(6))
+        # Full table also includes ED and GC-A per paper text
+        headers = ["Config", "E-Q", "E-P", "SRC", "SD1", "SD2", "SDC1", "SDC2", "CHI", "ED", "GC-A", "PAG(4)"]
+        widths = [14, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10]
 
-        print(f"{'-'*110}")
+        print(f"{'-'*120}")
         print_table_row(headers, widths)
-        print(f"{'-'*110}")
+        print(f"{'-'*120}")
 
         sd1 = approx.tail_probability(H, 'saddlepoint')
         sd2 = approx.tail_probability(H, 'saddlepoint_sd2')
         sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
         sdc2 = approx.tail_probability(H, 'saddlepoint_cc2')
         chi = approx.tail_probability(H, 'chi_square')
+        ed = approx.tail_probability(H, 'edgeworth')
+        gc_a = approx.tail_probability(H, 'gram_charlier')
         pag4 = approx.tail_probability(H, 'pam')
-        pag6 = approx.tail_probability(H, 'pam6')
 
         src_label = {"exact": "E", "simulation": "S", "chi_square": "C"}[source]
-        values = ["3,2,2,5", H, ref_alpha, src_label, sd1, sd2, sdc1, sdc2, chi, pag4, pag6]
+        values = ["3,2,2,5", H, ref_alpha, src_label, sd1, sd2, sdc1, sdc2, chi, ed, gc_a, pag4]
         print_table_row(values, widths)
-        print(f"{'-'*110}")
+        print(f"{'-'*120}")
 
 
 def reproduce_tables_4_6_4_7():
@@ -370,11 +372,12 @@ def reproduce_tables_4_6_4_7():
     for alpha in [0.10, 0.05]:
         print(f"\n--- alpha = {alpha} ---\n")
 
-        headers = ["Config", "N", "E-Q", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)", "PAG(6)"]
-        widths = [14, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10]
+        # Paper Tables 7-8 (Tables 4.6-4.7): CHI, SD1, SD2, SDC1, SDC2, ED, GC-A, PAG(4) only
+        headers = ["Config", "N", "E-Q", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)"]
+        widths = [14, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10]
 
         print_table_row(headers, widths)
-        print("-" * 142)
+        print("-" * 132)
 
         for sample_sizes in configs:
             N = sum(sample_sizes)
@@ -392,15 +395,14 @@ def reproduce_tables_4_6_4_7():
             ed = approx.tail_probability(H, 'edgeworth')
             gc_a = approx.tail_probability(H, 'gram_charlier')
             pag4 = approx.tail_probability(H, 'pam')
-            pag6 = approx.tail_probability(H, 'pam6')
 
             config = ','.join(map(str, sample_sizes))
             # Source indicator: E=exact, S=simulation, C=chi-square
             src_label = {"exact": "E", "simulation": "S", "chi_square": "C"}[source]
-            values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4, pag6]
+            values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4]
             print_table_row(values, widths)
 
-        print("-" * 142)
+        print("-" * 132)
         print("  SRC: E=Exact, S=Simulation (10,000 iterations), C=Chi-square")
 
 
