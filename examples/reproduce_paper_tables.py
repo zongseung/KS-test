@@ -70,7 +70,10 @@ def get_reference_probability(approx: KWApproximator, h: float, N: int, k: int,
     Returns:
         (probability, is_simulation_based)
     """
-    # Determine threshold based on k
+    # Determine threshold for exact vs simulation (implementation choice; paper does not
+    # specify numerical thresholds — only notes that exact methods may be computationally
+    # prohibitive for large N. These values were chosen to match the E/S labels in the
+    # paper tables and are verified to produce correct SRC column assignments.)
     if k <= 3:
         limit_N = 15
     elif k == 4:
@@ -130,7 +133,10 @@ def get_reference_critical_value(sample_sizes: list, alpha: float,
     k = len(sample_sizes)
     N = sum(sample_sizes)
 
-    # Determine threshold based on k (following paper recommendations)
+    # Determine threshold for exact vs simulation (implementation choice; paper does not
+    # specify numerical thresholds — only notes that exact methods may be computationally
+    # prohibitive for large N. These values were chosen to match the E/S labels in the
+    # paper tables and are verified to produce correct SRC column assignments.)
     if k <= 3:
         limit_N = 15
     elif k == 4:

@@ -70,15 +70,13 @@ class ExactDistribution:
         # For k groups, this is approximately O(N^k)
 
         if self.N > 15:
-            if self.N <= 30:
-                recommended = "pam6 (polynomial adjusted gamma, degree=6)"
-            elif self.N <= 100:
-                recommended = "pam (polynomial adjusted gamma, degree=4)"
+            if self.N <= 100:
+                recommended = "pam (PAG, degree=4) or saddlepoint (SD1)"
             else:
-                recommended = "saddlepoint"
-            
+                recommended = "saddlepoint (SD1)"
+
             warnings.warn(
-                f"[Paper Recommendation] N={self.N} > 15: Consider using {recommended} instead of exact. "
+                f"N={self.N} > 15: Consider using {recommended} instead of exact. "
                 f"Exact computation may be slow or use excessive memory.",
                 RuntimeWarning
             )
