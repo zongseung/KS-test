@@ -18,7 +18,7 @@ from .moments import KWMoments
 from .saddlepoint import SaddlepointApproximation
 from .exact import ExactDistribution
 from .simulation import MonteCarloSimulation
-from .edgeworth import EdgeworthApproximation
+from .edgeworth import EdgeworthApproximation, EdgeworthHallKolassa
 from .gram_charlier import GramCharlierApproximation
 from .pam import PolynomialAdjustedGamma
 
@@ -77,6 +77,7 @@ class KWApproximator:
         'Wang_cc',      # Wang with continuity correction
         'KT_cc',        # KT with continuity correction
         'edgeworth',    # Edgeworth expansion approximation
+        'edgeworth_hk', # Hall/Kolassa Edgeworth with asymptotic cumulants (ED-HK)
         'gram_charlier', # Gram-Charlier Type A series
         'pam',          # Polynomially adjusted gamma (degree=4)
         'pam6',         # Polynomially adjusted gamma (degree=6)
@@ -120,6 +121,8 @@ class KWApproximator:
             self._methods[method] = SaddlepointApproximation(
                 self.sample_sizes, cgf_method=cgf_name
             )
+        elif method == 'edgeworth_hk':
+            self._methods[method] = EdgeworthHallKolassa(self.sample_sizes)
         elif method == 'exact':
             if self._exact is None:
                 self._exact = ExactDistribution(self.sample_sizes)
@@ -173,6 +176,10 @@ class KWApproximator:
         if cgf_name in self.CGF_METHODS:
             sp = self._get_method(method)
             return sp.tail_probability_lr(h, continuity_correction=cc)
+
+        elif method == 'edgeworth_hk':
+            ed_hk = self._get_method(method)
+            return ed_hk.tail_probability(h)
 
         elif method == 'exact':
             exact = self._get_method(method)

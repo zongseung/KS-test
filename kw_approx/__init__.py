@@ -20,12 +20,12 @@ References:
 from .kruskal_wallis import KruskalWallisStatistic
 from .moments import KWMoments
 from .saddlepoint import SaddlepointApproximation
+from .pam import PolynomialAdjustedGamma
+from .gram_charlier import GramCharlierApproximation
+from .edgeworth import EdgeworthApproximation, EdgeworthHallKolassa, hall_kolassa_cumulants
 from .exact import ExactDistribution
 from .simulation import MonteCarloSimulation
 from .approximator import KWApproximator
-from .pam import PolynomialAdjustedGamma
-from .gram_charlier import GramCharlierApproximation
-from .edgeworth import EdgeworthApproximation
 
 __version__ = "0.3.0"
 __author__ = "Based on Murakami, Lee & Ha (2026)"
@@ -34,10 +34,12 @@ __all__ = [
     "KruskalWallisStatistic",
     "KWMoments",
     "SaddlepointApproximation",
-    "ExactDistribution",
-    "MonteCarloSimulation",
-    "KWApproximator",
     "PolynomialAdjustedGamma",
     "GramCharlierApproximation",
     "EdgeworthApproximation",
+    "EdgeworthHallKolassa",
+    "hall_kolassa_cumulants",
+    "ExactDistribution",
+    "MonteCarloSimulation",
+    "KWApproximator",
 ]

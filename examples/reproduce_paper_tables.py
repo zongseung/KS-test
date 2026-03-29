@@ -186,26 +186,27 @@ def reproduce_table_4_1():
 
         H, ref_alpha, source = get_reference_critical_value(sample_sizes, alpha, n_simulations=10000)
 
-        # Paper Table 4.1: no CHI column, no PAG(6)
-        headers = ["n1,n2,n3", "E-Q", "E-P", "SRC", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)"]
-        widths = [12, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10]
+        # Paper Table 4.1 + ED-HK (Hall/Kolassa comparison)
+        headers = ["n1,n2,n3", "E-Q", "E-P", "SRC", "SD1", "SD2", "SDC1", "SDC2", "ED", "ED-HK", "GC-A", "PAG(4)"]
+        widths = [12, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10]
 
-        print(f"\n{'-'*108}")
+        print(f"\n{'-'*118}")
         print_table_row(headers, widths)
-        print(f"{'-'*108}")
+        print(f"{'-'*118}")
 
         sd1 = approx.tail_probability(H, 'saddlepoint')
         sd2 = approx.tail_probability(H, 'saddlepoint_sd2')
         sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
         sdc2 = approx.tail_probability(H, 'saddlepoint_cc2')
         ed = approx.tail_probability(H, 'edgeworth')
+        ed_hk = approx.tail_probability(H, 'edgeworth_hk')
         gc_a = approx.tail_probability(H, 'gram_charlier')
         pag4 = approx.tail_probability(H, 'pam')
 
         src_label = {"exact": "E", "simulation": "S", "chi_square": "C"}[source]
-        values = ["3,3,3", H, ref_alpha, src_label, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4]
+        values = ["3,3,3", H, ref_alpha, src_label, sd1, sd2, sdc1, sdc2, ed, ed_hk, gc_a, pag4]
         print_table_row(values, widths)
-        print(f"{'-'*108}")
+        print(f"{'-'*118}")
 
 
 def reproduce_tables_4_2_4_3():
@@ -226,12 +227,12 @@ def reproduce_tables_4_2_4_3():
     for alpha in [0.10, 0.05]:
         print(f"\n--- alpha = {alpha} ---\n")
 
-        # Paper Tables 4.2-4.3: CHI, SD1, SD2, SDC1, SDC2, ED, GC-A, PAG(4) only
-        headers = ["n1,n2,n3", "N", "E-Q", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)"]
-        widths = [12, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10]
+        # Paper Tables 4.2-4.3 + ED-HK (Hall/Kolassa comparison)
+        headers = ["n1,n2,n3", "N", "E-Q", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "ED-HK", "GC-A", "PAG(4)"]
+        widths = [12, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10]
 
         print_table_row(headers, widths)
-        print("-" * 128)
+        print("-" * 138)
 
         for n in n_values:
             sample_sizes = [n, n, n]
@@ -249,15 +250,16 @@ def reproduce_tables_4_2_4_3():
             sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
             sdc2 = approx.tail_probability(H, 'saddlepoint_cc2')
             ed = approx.tail_probability(H, 'edgeworth')
+            ed_hk = approx.tail_probability(H, 'edgeworth_hk')
             gc_a = approx.tail_probability(H, 'gram_charlier')
             pag4 = approx.tail_probability(H, 'pam')
 
             config = f"{n},{n},{n}"
             src_label = {"exact": "E", "simulation": "S", "chi_square": "C"}[source]
-            values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4]
+            values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, ed_hk, gc_a, pag4]
             print_table_row(values, widths)
 
-        print("-" * 128)
+        print("-" * 138)
         print("  SRC: E=Exact, S=Simulation (10,000 iterations), C=Chi-square")
 
 
