@@ -1,3 +1,5 @@
+[**English**](README_EN.md) | **Korean**
+
 # kw-approx: Higher Order Asymptotic Approximations for Kruskal-Wallis Statistics
 
 Kruskal-Wallis 검정 통계량의 고차 점근 근사를 구현한 Python 패키지입니다.
@@ -49,29 +51,8 @@ KS-test/
 |   |-- paper_tables.tex                    # LaTeX 테이블
 |   +-- result*.txt                         # 수치 결과
 |
-|-- comparison/                   # 분석/연구 문서
-|   |-- hall_kolassa_research.md
-|   |-- lemma25_formula_errors.md
-|   +-- paper_comparison_plan.md
-|
-|-- planner/                      # 기획 문서
-|   |-- master_plan_v2.md
-|   +-- formula_verification_report.md
-|
-|-- revision/                     # 논문 수정 관련
-|   |-- revision1.md
-|   +-- revision_final.md
-|
-|-- docs/
-|   +-- exact_threshold_analysis.md
-|
-|-- .claude/commands/he/          # Harness Engineering 프레임워크
-|   |-- he.md                     #   디스패처
-|   |-- plan.md                   #   기획서
-|   |-- generate.md               #   생성자
-|   +-- judge.md                  #   판별자
-|
 |-- README.md
+|-- README_EN.md
 |-- CLAUDE.md
 |-- pyproject.toml
 +-- Kruskal_Wallis_Test.pdf       # 논문 원본
