@@ -11,11 +11,21 @@ wheels/
 
 *.pdf
 
-# 
+#
 *setup
 
-
 *.ipynb
-*.md
 /result
-*.claude
+
+# Internal working directories
+comparison/
+planner/
+revision/
+docs/
+.claude/
+my-skill/
+
+# Temporary scripts
+find_*.py
+verify_*.py
+simplify_*.py
