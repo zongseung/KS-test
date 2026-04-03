@@ -690,10 +690,10 @@ def reproduce_table_4_1_extended():
     print_header("Extended Table 4.1: Various small-sample 3-group designs")
 
     configs = [
-        # Balanced small
-        [2, 2, 2], [4, 4, 4], [5, 5, 5],
-        # Unbalanced small
-        [2, 3, 4], [2, 2, 5], [3, 4, 5], [2, 3, 7], [3, 5, 7],
+        # Balanced small (not in Tables 4.2-4.3)
+        [2, 2, 2],
+        # Unbalanced small (not in unbalanced series)
+        [2, 3, 4], [2, 2, 5], [3, 5, 7],
     ]
 
     for alpha in [0.10, 0.05]:
@@ -889,19 +889,7 @@ def reproduce_tables_4_6_4_7_extended():
     """Extended Tables 4.6-4.7: Additional 4-group configs"""
     print_header("Extended Tables 4.6-4.7: Additional 4-group configs")
 
-    # Original configs
-    original_configs = [
-        [2, 2, 2, 2],
-        [3, 2, 2, 3],
-        [3, 2, 2, 5],
-        [4, 3, 3, 5],
-        [5, 4, 4, 5],
-        [3, 3, 3, 3],
-        [4, 4, 4, 4],
-        [5, 5, 5, 5],
-    ]
-
-    # Additional small (N<=13, exact)
+    # Additional small (N<=13, exact) -- not in Tables 4.6-4.7
     additional_small = [
         [2, 2, 3, 3], [2, 3, 3, 3], [2, 2, 2, 4], [3, 2, 3, 4], [2, 3, 2, 4],
     ]
@@ -918,7 +906,7 @@ def reproduce_tables_4_6_4_7_extended():
         [15, 10, 10, 15], [20, 20, 20, 20],
     ]
 
-    all_configs = original_configs + additional_small + additional_medium + additional_large
+    all_configs = additional_small + additional_medium + additional_large
 
     for alpha in [0.10, 0.05]:
         print(f"\n--- alpha = {alpha} ---\n")
