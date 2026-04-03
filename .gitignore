@@ -18,3 +18,4 @@ wheels/
 *.ipynb
 *.md
 /result
+*.claude
