@@ -214,6 +214,9 @@ def reproduce_table_4_1():
             print_table_row(values, widths)
 
         print(f"{'-'*132}")
+        print("  H(crit): Critical value of H at given alpha")
+        print("  P(exact): Reference tail probability P(H >= H(crit)) from exact or simulation")
+        print("  SRC: E=Exact distribution, S=Simulation (10,000 iterations), C=Chi-square")
 
 
 def reproduce_tables_4_2_4_3():
@@ -415,7 +418,6 @@ def reproduce_table_4_4():
         print("  H(crit): Critical value of H at given alpha")
         print("  P(exact): Reference tail probability P(H >= H(crit)) from exact or simulation")
         print("  SRC: E=Exact distribution, S=Simulation (10,000 iterations), C=Chi-square")
-        print("  H(cv): Critical value, P(ref): Reference tail probability")
 
 
 def reproduce_table_4_5():
@@ -555,7 +557,7 @@ def generate_random_three_group_designs(n_designs: int = 10):
     """
     print_header(f"Random Three-Group Designs (n={n_designs})")
 
-    headers = ["Config", "N", "H(10%)", "P(exact)", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)", "PAG(6)"]
+    headers = ["Config", "N", "H(crit)", "P(exact)", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)", "PAG(6)"]
     widths = [14, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10]
 
     print_table_row(headers, widths)
@@ -613,7 +615,7 @@ def generate_random_four_group_designs(n_designs: int = 10):
     """
     print_header(f"Random Four-Group Designs (n={n_designs})")
 
-    headers = ["Config", "N", "H(10%)", "P(exact)", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)", "PAG(6)"]
+    headers = ["Config", "N", "H(crit)", "P(exact)", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)", "PAG(6)"]
     widths = [16, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10]
 
     print_table_row(headers, widths)
@@ -674,7 +676,7 @@ def generate_random_k_group_designs(k: int = 5, n_designs: int = 10):
     """
     print_header(f"Random {k}-Group Designs (n={n_designs})")
 
-    headers = ["Config", "N", "H(10%)", "P(exact)", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)", "PAG(6)"]
+    headers = ["Config", "N", "H(crit)", "P(exact)", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)", "PAG(6)"]
     widths = [20, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10]
 
     print_table_row(headers, widths)
