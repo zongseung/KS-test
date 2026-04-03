@@ -1,3 +1,5 @@
+**English** | [**Korean**](README.md)
+
 # kw-approx: Higher Order Asymptotic Approximations for Kruskal-Wallis Statistics
 
 A Python package implementing higher-order asymptotic approximations to the null distribution and critical values of the Kruskal-Wallis test statistic.
@@ -43,10 +45,6 @@ KS-test/
 |-- tests/
 |   +-- test_approximations.py    #   36 test cases
 |
-|-- result/                       # Outputs
-|   |-- section2_3_exact_moments_proof.tex  # Section 2.3 proof supplement
-|   |-- errata_formulas.tex                 # Formula errata
-|   +-- paper_tables.tex                    # LaTeX tables
 |
 |-- README.md                     # Korean documentation
 |-- README_EN.md                  # English documentation

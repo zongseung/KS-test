@@ -45,11 +45,6 @@ KS-test/
 |-- tests/
 |   +-- test_approximations.py    #   36개 테스트 케이스
 |
-|-- result/                       # 산출물
-|   |-- section2_3_exact_moments_proof.tex  # Section 2.3 증명 supplement
-|   |-- errata_formulas.tex                 # 수식 정오표
-|   |-- paper_tables.tex                    # LaTeX 테이블
-|   +-- result*.txt                         # 수치 결과
 |
 |-- README.md
 |-- README_EN.md
