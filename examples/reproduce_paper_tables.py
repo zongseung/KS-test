@@ -187,7 +187,7 @@ def reproduce_table_4_1():
     for alpha in [0.10, 0.05]:
         print(f"\n--- alpha = {alpha} ---")
 
-        headers = ["Config", "N", "E-Q", "E-P", "SRC", "SD1", "SD2", "SDC1", "SDC2", "ED", "ED-HK", "GC-A", "PAG(4)"]
+        headers = ["Config", "N", "H(cv)", "P(ref)", "SRC", "SD1", "SD2", "SDC1", "SDC2", "ED", "ED-HK", "GC-A", "PAG(4)"]
         widths = [12, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10]
 
         print(f"\n{'-'*132}")
@@ -243,7 +243,7 @@ def reproduce_tables_4_2_4_3():
         print(f"\n--- alpha = {alpha} ---\n")
 
         # Paper Tables 4.2-4.3 + ED-HK (Hall/Kolassa comparison)
-        headers = ["n1,n2,n3", "N", "E-Q", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "ED-HK", "GC-A", "PAG(4)"]
+        headers = ["n1,n2,n3", "N", "H(cv)", "P(ref)", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "ED-HK", "GC-A", "PAG(4)"]
         widths = [12, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10]
 
         print_table_row(headers, widths)
@@ -354,8 +354,8 @@ def reproduce_table_4_4():
         print(f"\n--- alpha = {alpha} ---\n")
 
         # Paper Tables 4-5 (Table 4.4): CHI, SD1, SD2, SDC1, SDC2, ED, GC-A, PAG(4) only
-        headers = ["n1,n2,n3", "N", "SIM-CV", "SIM", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)"]
-        widths = [12, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10]
+        headers = ["n1,n2,n3", "N", "H(cv)", "P(ref)", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)"]
+        widths = [12, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10]
 
         print_table_row(headers, widths)
         print("-" * 124)
@@ -379,15 +379,16 @@ def reproduce_table_4_4():
             pag4 = approx.tail_probability(H, 'pam')
 
             config = f"{n},{n},{n}"
-            values = [config, N, H, ref_alpha, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4]
+            src_label = {"exact": "E", "simulation": "S", "chi_square": "C"}[source]
+            values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4]
             print_table_row(values, widths)
 
-        print("-" * 124)
+        print("-" * 138)
 
         # Unbalanced larger 3-group
         print(f"\n  [Unbalanced larger 3-group]\n")
         print_table_row(headers, widths)
-        print("-" * 124)
+        print("-" * 138)
 
         for sample_sizes in unbalanced_configs:
             N = sum(sample_sizes)
@@ -404,10 +405,13 @@ def reproduce_table_4_4():
             pag4 = approx.tail_probability(H, 'pam')
 
             config = ','.join(map(str, sample_sizes))
-            values = [config, N, H, ref_alpha, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4]
+            src_label = {"exact": "E", "simulation": "S", "chi_square": "C"}[source]
+            values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4]
             print_table_row(values, widths)
 
-        print("-" * 124)
+        print("-" * 138)
+        print("  SRC: E=Exact, S=Simulation, C=Chi-square")
+        print("  H(cv): Critical value, P(ref): Reference tail probability")
 
 
 def reproduce_table_4_5():
@@ -428,7 +432,7 @@ def reproduce_table_4_5():
     for alpha in [0.10, 0.05]:
         print(f"\n--- alpha = {alpha} ---\n")
 
-        headers = ["Config", "E-Q", "E-P", "SRC", "SD1", "SD2", "SDC1", "SDC2", "CHI", "ED", "GC-A", "PAG(4)"]
+        headers = ["Config", "H(cv)", "P(ref)", "SRC", "SD1", "SD2", "SDC1", "SDC2", "CHI", "ED", "GC-A", "PAG(4)"]
         widths = [14, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10]
 
         print(f"{'-'*120}")
@@ -494,7 +498,7 @@ def reproduce_tables_4_6_4_7():
         print(f"\n--- alpha = {alpha} ---\n")
 
         # Paper Tables 7-8 (Tables 4.6-4.7): CHI, SD1, SD2, SDC1, SDC2, ED, GC-A, PAG(4) only
-        headers = ["Config", "N", "E-Q", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)"]
+        headers = ["Config", "N", "H(cv)", "P(ref)", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)"]
         widths = [14, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10]
 
         print_table_row(headers, widths)
@@ -543,7 +547,7 @@ def generate_random_three_group_designs(n_designs: int = 10):
     """
     print_header(f"Random Three-Group Designs (n={n_designs})")
 
-    headers = ["Config", "N", "H(10%)", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)", "PAG(6)"]
+    headers = ["Config", "N", "H(10%)", "P(ref)", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)", "PAG(6)"]
     widths = [14, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10]
 
     print_table_row(headers, widths)
@@ -600,7 +604,7 @@ def generate_random_four_group_designs(n_designs: int = 10):
     """
     print_header(f"Random Four-Group Designs (n={n_designs})")
 
-    headers = ["Config", "N", "H(10%)", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)", "PAG(6)"]
+    headers = ["Config", "N", "H(10%)", "P(ref)", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)", "PAG(6)"]
     widths = [16, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10]
 
     print_table_row(headers, widths)
@@ -660,7 +664,7 @@ def generate_random_k_group_designs(k: int = 5, n_designs: int = 10):
     """
     print_header(f"Random {k}-Group Designs (n={n_designs})")
 
-    headers = ["Config", "N", "H(10%)", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)", "PAG(6)"]
+    headers = ["Config", "N", "H(10%)", "P(ref)", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)", "PAG(6)"]
     widths = [20, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10]
 
     print_table_row(headers, widths)
@@ -762,7 +766,7 @@ def comprehensive_random_study(n_per_category: int = 5):
     # Now compute results for all
     print_header("Results for All Random Designs (alpha = 0.10)")
 
-    headers = ["Category", "Config", "N", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)", "PAG(6)"]
+    headers = ["Category", "Config", "N", "P(ref)", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)", "PAG(6)"]
     widths = [10, 18, 6, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10]
 
     print_table_row(headers, widths)
