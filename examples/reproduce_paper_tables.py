@@ -217,6 +217,7 @@ def reproduce_table_4_1():
         print("  E-Q: Exact (or simulated) upper quantile c_alpha")
         print("  E-P: Corresponding tail probability Pr(H >= c_alpha)")
         print("  SRC: E=Exact, S=Simulation (10,000 iterations)")
+    print("  ED-HK: Hall & Kolassa Edgeworth expansion (asymptotic cumulants)")
 
 
 def reproduce_tables_4_2_4_3():
@@ -258,7 +259,7 @@ def reproduce_tables_4_2_4_3():
 
             approx = KWApproximator(sample_sizes)
 
-            # Get REFERENCE critical value (exact or simulation - NEVER pam6!)
+            # Get REFERENCE critical value (exact or simulation)
             H, ref_alpha, source = get_reference_critical_value(sample_sizes, alpha, n_simulations=10000)
 
             # Compute all approximation tail probabilities at the same reference H
@@ -335,6 +336,7 @@ def reproduce_tables_4_2_4_3():
         print("  E-Q: Exact (or simulated) upper quantile c_alpha")
         print("  E-P: Corresponding tail probability Pr(H >= c_alpha)")
         print("  SRC: E=Exact, S=Simulation (10,000 iterations)")
+    print("  ED-HK: Hall & Kolassa Edgeworth expansion (asymptotic cumulants)")
 
 
 def reproduce_table_4_4():
@@ -421,7 +423,7 @@ def reproduce_table_4_4():
         print("  E-Q: Exact (or simulated) upper quantile c_alpha")
         print("  E-P: Corresponding tail probability Pr(H >= c_alpha)")
         print("  SRC: E=Exact, S=Simulation (10,000 iterations)")
-        print("  ED-HK: Hall & Kolassa Edgeworth expansion (asymptotic cumulants)")
+    print("  ED-HK: Hall & Kolassa Edgeworth expansion (asymptotic cumulants)")
 
 
 def reproduce_table_4_5():
@@ -473,7 +475,7 @@ def reproduce_table_4_5():
         print("  E-Q: Exact (or simulated) upper quantile c_alpha")
         print("  E-P: Corresponding tail probability Pr(H >= c_alpha)")
         print("  SRC: E=Exact, S=Simulation (10,000 iterations)")
-        print("  ED-HK: Hall & Kolassa Edgeworth expansion (asymptotic cumulants)")
+    print("  ED-HK: Hall & Kolassa Edgeworth expansion (asymptotic cumulants)")
 
 
 def reproduce_tables_4_6_4_7():
@@ -524,7 +526,7 @@ def reproduce_tables_4_6_4_7():
             N = sum(sample_sizes)
             approx = KWApproximator(sample_sizes)
 
-            # Get REFERENCE critical value (exact or simulation - NEVER pam6!)
+            # Get REFERENCE critical value (exact or simulation)
             H, ref_alpha, source = get_reference_critical_value(sample_sizes, alpha, n_simulations=10000)
 
             # Compute all approximation tail probabilities at the same reference H
@@ -547,17 +549,12 @@ def reproduce_tables_4_6_4_7():
         print("  E-Q: Exact (or simulated) upper quantile c_alpha")
         print("  E-P: Corresponding tail probability Pr(H >= c_alpha)")
         print("  SRC: E=Exact, S=Simulation (10,000 iterations)")
-        print("  ED-HK: Hall & Kolassa Edgeworth expansion (asymptotic cumulants)")
+    print("  ED-HK: Hall & Kolassa Edgeworth expansion (asymptotic cumulants)")
 
 
 def generate_random_three_group_designs(n_designs: int = 10):
     """
     Generate random three-group designs and compare approximation methods.
-
-    Following paper methodology:
-    - Critical value H is determined from REFERENCE distribution (exact or simulation)
-    - All approximation methods are compared at the SAME reference H
-    - This avoids self-calibration issues where PAG(6) = 0.10 always
 
     Parameters
     ----------
@@ -566,14 +563,13 @@ def generate_random_three_group_designs(n_designs: int = 10):
     """
     print_header(f"Random Three-Group Designs (n={n_designs})")
 
-    headers = ["Config", "N", "E-Q", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)", "PAG(6)"]
+    headers = ["Config", "N", "E-Q", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "ED-HK", "GC-A", "PAG(4)"]
     widths = [14, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10]
 
     print_table_row(headers, widths)
     print("-" * 142)
 
     for i in range(n_designs):
-        # Generate random sample sizes (between 2 and 10 for each group)
         n1 = random.randint(2, 10)
         n2 = random.randint(2, 10)
         n3 = random.randint(2, 10)
@@ -581,41 +577,33 @@ def generate_random_three_group_designs(n_designs: int = 10):
         N = sum(sample_sizes)
 
         approx = KWApproximator(sample_sizes)
-
-        # Get REFERENCE critical value (exact or simulation - NEVER pam6!)
         H, ref_alpha, source = get_reference_critical_value(sample_sizes, 0.10, n_simulations=10000)
 
-        # Compute all approximation tail probabilities at the same reference H
         chi = approx.tail_probability(H, 'chi_square')
         sd1 = approx.tail_probability(H, 'saddlepoint')
         sd2 = approx.tail_probability(H, 'saddlepoint_sd2')
         sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
         sdc2 = approx.tail_probability(H, 'saddlepoint_cc2')
         ed = approx.tail_probability(H, 'edgeworth')
+        ed_hk = approx.tail_probability(H, 'edgeworth_hk')
         gc_a = approx.tail_probability(H, 'gram_charlier')
         pag4 = approx.tail_probability(H, 'pam')
-        pag6 = approx.tail_probability(H, 'pam6')
 
         config = f"{n1},{n2},{n3}"
-        # Source indicator: E=exact, S=simulation, C=chi-square
         src_label = {"exact": "E", "simulation": "S", "chi_square": "C"}[source]
-        values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4, pag6]
+        values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, ed_hk, gc_a, pag4]
         print_table_row(values, widths)
 
     print("-" * 142)
     print("  E-Q: Exact (or simulated) upper quantile c_alpha")
     print("  E-P: Corresponding tail probability Pr(H >= c_alpha)")
     print("  SRC: E=Exact, S=Simulation (10,000 iterations)")
+    print("  ED-HK: Hall & Kolassa Edgeworth expansion (asymptotic cumulants)")
 
 
 def generate_random_four_group_designs(n_designs: int = 10):
     """
     Generate random four-group designs and compare approximation methods.
-
-    Following paper methodology:
-    - Critical value H is determined from REFERENCE distribution (exact or simulation)
-    - All approximation methods are compared at the SAME reference H
-    - This avoids self-calibration issues where PAG(6) = 0.10 always
 
     Parameters
     ----------
@@ -624,14 +612,13 @@ def generate_random_four_group_designs(n_designs: int = 10):
     """
     print_header(f"Random Four-Group Designs (n={n_designs})")
 
-    headers = ["Config", "N", "E-Q", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)", "PAG(6)"]
+    headers = ["Config", "N", "E-Q", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "ED-HK", "GC-A", "PAG(4)"]
     widths = [16, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10]
 
     print_table_row(headers, widths)
     print("-" * 144)
 
     for i in range(n_designs):
-        # Generate random sample sizes (between 2 and 8 for each group)
         n1 = random.randint(2, 8)
         n2 = random.randint(2, 8)
         n3 = random.randint(2, 8)
@@ -640,41 +627,33 @@ def generate_random_four_group_designs(n_designs: int = 10):
         N = sum(sample_sizes)
 
         approx = KWApproximator(sample_sizes)
-
-        # Get REFERENCE critical value (exact or simulation - NEVER pam6!)
         H, ref_alpha, source = get_reference_critical_value(sample_sizes, 0.10, n_simulations=10000)
 
-        # Compute all approximation tail probabilities at the same reference H
         chi = approx.tail_probability(H, 'chi_square')
         sd1 = approx.tail_probability(H, 'saddlepoint')
         sd2 = approx.tail_probability(H, 'saddlepoint_sd2')
         sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
         sdc2 = approx.tail_probability(H, 'saddlepoint_cc2')
         ed = approx.tail_probability(H, 'edgeworth')
+        ed_hk = approx.tail_probability(H, 'edgeworth_hk')
         gc_a = approx.tail_probability(H, 'gram_charlier')
         pag4 = approx.tail_probability(H, 'pam')
-        pag6 = approx.tail_probability(H, 'pam6')
 
         config = f"{n1},{n2},{n3},{n4}"
-        # Source indicator: E=exact, S=simulation, C=chi-square
         src_label = {"exact": "E", "simulation": "S", "chi_square": "C"}[source]
-        values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4, pag6]
+        values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, ed_hk, gc_a, pag4]
         print_table_row(values, widths)
 
     print("-" * 144)
     print("  E-Q: Exact (or simulated) upper quantile c_alpha")
     print("  E-P: Corresponding tail probability Pr(H >= c_alpha)")
     print("  SRC: E=Exact, S=Simulation (10,000 iterations)")
+    print("  ED-HK: Hall & Kolassa Edgeworth expansion (asymptotic cumulants)")
 
 
 def generate_random_k_group_designs(k: int = 5, n_designs: int = 10):
     """
     Generate random k-group designs and compare approximation methods.
-
-    Following paper methodology:
-    - Critical value H is determined from REFERENCE distribution (exact or simulation)
-    - All approximation methods are compared at the SAME reference H
-    - This avoids self-calibration issues where PAG(6) = 0.10 always
 
     Parameters
     ----------
@@ -685,58 +664,44 @@ def generate_random_k_group_designs(k: int = 5, n_designs: int = 10):
     """
     print_header(f"Random {k}-Group Designs (n={n_designs})")
 
-    headers = ["Config", "N", "E-Q", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)", "PAG(6)"]
+    headers = ["Config", "N", "E-Q", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "ED-HK", "GC-A", "PAG(4)"]
     widths = [20, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10]
 
     print_table_row(headers, widths)
     print("-" * 148)
 
     for i in range(n_designs):
-        # Generate random sample sizes (between 2 and 6 for each group)
         sample_sizes = [random.randint(2, 6) for _ in range(k)]
         N = sum(sample_sizes)
 
         approx = KWApproximator(sample_sizes)
-
-        # Get REFERENCE critical value (exact or simulation - NEVER pam6!)
         H, ref_alpha, source = get_reference_critical_value(sample_sizes, 0.10, n_simulations=10000)
 
-        # Compute all approximation tail probabilities at the same reference H
         chi = approx.tail_probability(H, 'chi_square')
         sd1 = approx.tail_probability(H, 'saddlepoint')
         sd2 = approx.tail_probability(H, 'saddlepoint_sd2')
         sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
         sdc2 = approx.tail_probability(H, 'saddlepoint_cc2')
         ed = approx.tail_probability(H, 'edgeworth')
+        ed_hk = approx.tail_probability(H, 'edgeworth_hk')
         gc_a = approx.tail_probability(H, 'gram_charlier')
         pag4 = approx.tail_probability(H, 'pam')
-        pag6 = approx.tail_probability(H, 'pam6')
 
         config = ','.join(map(str, sample_sizes))
-        # Source indicator: E=exact, S=simulation, C=chi-square
         src_label = {"exact": "E", "simulation": "S", "chi_square": "C"}[source]
-        values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4, pag6]
+        values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, ed_hk, gc_a, pag4]
         print_table_row(values, widths)
 
     print("-" * 148)
     print("  E-Q: Exact (or simulated) upper quantile c_alpha")
     print("  E-P: Corresponding tail probability Pr(H >= c_alpha)")
     print("  SRC: E=Exact, S=Simulation (10,000 iterations)")
+    print("  ED-HK: Hall & Kolassa Edgeworth expansion (asymptotic cumulants)")
 
 
 def comprehensive_random_study(n_per_category: int = 5):
     """
     Comprehensive random study across different group configurations.
-
-    Following paper methodology:
-    - Critical value H is determined from REFERENCE distribution (exact or simulation)
-    - All approximation methods are compared at the SAME reference H
-    - This avoids self-calibration issues where PAG(6) = 0.10 always
-
-    Generates random designs for:
-    - 3 groups (balanced and unbalanced)
-    - 4 groups (balanced and unbalanced)
-    - 5 groups
 
     Parameters
     ----------
@@ -788,7 +753,7 @@ def comprehensive_random_study(n_per_category: int = 5):
     # Now compute results for all
     print_header("Results for All Random Designs (alpha = 0.10)")
 
-    headers = ["Category", "Config", "N", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)", "PAG(6)"]
+    headers = ["Category", "Config", "N", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "ED-HK", "GC-A", "PAG(4)"]
     widths = [10, 18, 6, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10]
 
     print_table_row(headers, widths)
@@ -798,31 +763,29 @@ def comprehensive_random_study(n_per_category: int = 5):
         N = sum(sample_sizes)
         approx = KWApproximator(sample_sizes)
 
-        # Get REFERENCE critical value (exact or simulation - NEVER pam6!)
         H, ref_alpha, source = get_reference_critical_value(sample_sizes, 0.10, n_simulations=10000)
 
-        # Compute all approximation tail probabilities at the same reference H
         chi = approx.tail_probability(H, 'chi_square')
         sd1 = approx.tail_probability(H, 'saddlepoint')
         sd2 = approx.tail_probability(H, 'saddlepoint_sd2')
         sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
         sdc2 = approx.tail_probability(H, 'saddlepoint_cc2')
         ed = approx.tail_probability(H, 'edgeworth')
+        ed_hk = approx.tail_probability(H, 'edgeworth_hk')
         gc_a = approx.tail_probability(H, 'gram_charlier')
         pag4 = approx.tail_probability(H, 'pam')
-        pag6 = approx.tail_probability(H, 'pam6')
 
         config = ','.join(map(str, sample_sizes))
-        # Source indicator: E=exact, S=simulation, C=chi-square
         src_label = {"exact": "E", "simulation": "S", "chi_square": "C"}[source]
 
-        values = [category, config, N, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4, pag6]
+        values = [category, config, N, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, ed_hk, gc_a, pag4]
         print_table_row(values, widths)
 
     print("-" * 146)
     print("  E-Q: Exact (or simulated) upper quantile c_alpha")
     print("  E-P: Corresponding tail probability Pr(H >= c_alpha)")
     print("  SRC: E=Exact, S=Simulation (10,000 iterations)")
+    print("  ED-HK: Hall & Kolassa Edgeworth expansion (asymptotic cumulants)")
 
 
 def main():
