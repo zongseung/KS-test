@@ -685,6 +685,274 @@ def comprehensive_random_study(n_per_category: int = 5):
     print("  E-P: Reference tail probability at H(10%)")
 
 
+def reproduce_table_4_1_extended():
+    """Extended Table 4.1: Various small-sample 3-group designs"""
+    print_header("Extended Table 4.1: Various small-sample 3-group designs")
+
+    configs = [
+        # Balanced small
+        [2, 2, 2], [4, 4, 4], [5, 5, 5],
+        # Unbalanced small
+        [2, 3, 4], [2, 2, 5], [3, 4, 5], [2, 3, 7], [3, 5, 7],
+    ]
+
+    for alpha in [0.10, 0.05]:
+        print(f"\n--- alpha = {alpha} ---\n")
+
+        headers = ["Config", "N", "E-Q", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)"]
+        widths = [14, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10]
+
+        print_table_row(headers, widths)
+        print("-" * 132)
+
+        for sample_sizes in configs:
+            N = sum(sample_sizes)
+            approx = KWApproximator(sample_sizes)
+
+            H, ref_alpha, source = get_reference_critical_value(sample_sizes, alpha, n_simulations=10000)
+
+            chi = approx.tail_probability(H, 'chi_square')
+            sd1 = approx.tail_probability(H, 'saddlepoint')
+            sd2 = approx.tail_probability(H, 'saddlepoint_sd2')
+            sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
+            sdc2 = approx.tail_probability(H, 'saddlepoint_cc2')
+            ed = approx.tail_probability(H, 'edgeworth')
+            gc_a = approx.tail_probability(H, 'gram_charlier')
+            pag4 = approx.tail_probability(H, 'pam')
+
+            config = ','.join(map(str, sample_sizes))
+            src_label = {"exact": "E", "simulation": "S", "chi_square": "C"}[source]
+            values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4]
+            print_table_row(values, widths)
+
+        print("-" * 132)
+        print("  SRC: E=Exact, S=Simulation (10,000 iterations), C=Chi-square")
+
+
+def reproduce_tables_4_2_4_3_unbalanced():
+    """Extended Tables 4.2-4.3: Unbalanced 3-group series"""
+    print_header("Extended Tables 4.2-4.3: Unbalanced 3-group series")
+
+    # Mild unbalance series
+    mild_configs = [
+        [3, 4, 5], [4, 5, 6], [5, 6, 7], [6, 7, 8], [7, 8, 9], [8, 9, 10],
+    ]
+    # Severe unbalance series
+    severe_configs = [
+        [2, 3, 7], [2, 4, 8], [3, 5, 10], [2, 5, 8], [3, 4, 10],
+    ]
+
+    for alpha in [0.10, 0.05]:
+        print(f"\n--- alpha = {alpha} ---")
+
+        headers = ["Config", "N", "E-Q", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)"]
+        widths = [14, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10]
+
+        print(f"\n  [Mild unbalance]\n")
+        print_table_row(headers, widths)
+        print("-" * 132)
+
+        for sample_sizes in mild_configs:
+            N = sum(sample_sizes)
+            approx = KWApproximator(sample_sizes)
+
+            H, ref_alpha, source = get_reference_critical_value(sample_sizes, alpha, n_simulations=10000)
+
+            chi = approx.tail_probability(H, 'chi_square')
+            sd1 = approx.tail_probability(H, 'saddlepoint')
+            sd2 = approx.tail_probability(H, 'saddlepoint_sd2')
+            sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
+            sdc2 = approx.tail_probability(H, 'saddlepoint_cc2')
+            ed = approx.tail_probability(H, 'edgeworth')
+            gc_a = approx.tail_probability(H, 'gram_charlier')
+            pag4 = approx.tail_probability(H, 'pam')
+
+            config = ','.join(map(str, sample_sizes))
+            src_label = {"exact": "E", "simulation": "S", "chi_square": "C"}[source]
+            values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4]
+            print_table_row(values, widths)
+
+        print("-" * 132)
+
+        print(f"\n  [Severe unbalance]\n")
+        print_table_row(headers, widths)
+        print("-" * 132)
+
+        for sample_sizes in severe_configs:
+            N = sum(sample_sizes)
+            approx = KWApproximator(sample_sizes)
+
+            H, ref_alpha, source = get_reference_critical_value(sample_sizes, alpha, n_simulations=10000)
+
+            chi = approx.tail_probability(H, 'chi_square')
+            sd1 = approx.tail_probability(H, 'saddlepoint')
+            sd2 = approx.tail_probability(H, 'saddlepoint_sd2')
+            sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
+            sdc2 = approx.tail_probability(H, 'saddlepoint_cc2')
+            ed = approx.tail_probability(H, 'edgeworth')
+            gc_a = approx.tail_probability(H, 'gram_charlier')
+            pag4 = approx.tail_probability(H, 'pam')
+
+            config = ','.join(map(str, sample_sizes))
+            src_label = {"exact": "E", "simulation": "S", "chi_square": "C"}[source]
+            values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4]
+            print_table_row(values, widths)
+
+        print("-" * 132)
+        print("  SRC: E=Exact, S=Simulation (10,000 iterations), C=Chi-square")
+
+
+def reproduce_table_4_4_unbalanced():
+    """Extended Table 4.4: Unbalanced larger 3-group designs"""
+    print_header("Extended Table 4.4: Unbalanced larger 3-group designs")
+
+    configs = [
+        [10, 15, 20], [15, 20, 25], [10, 20, 30], [15, 25, 40], [20, 30, 50],
+        [5, 10, 30], [10, 15, 50], [5, 20, 40],
+    ]
+
+    for alpha in [0.10, 0.05]:
+        print(f"\n--- alpha = {alpha} ---\n")
+
+        headers = ["n1,n2,n3", "N", "SIM-CV", "SIM", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)"]
+        widths = [12, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10]
+
+        print_table_row(headers, widths)
+        print("-" * 124)
+
+        for sample_sizes in configs:
+            N = sum(sample_sizes)
+            approx = KWApproximator(sample_sizes)
+
+            H, ref_alpha, source = get_reference_critical_value(sample_sizes, alpha, n_simulations=10000)
+
+            chi = approx.tail_probability(H, 'chi_square')
+            sd1 = approx.tail_probability(H, 'saddlepoint')
+            sd2 = approx.tail_probability(H, 'saddlepoint_sd2')
+            sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
+            sdc2 = approx.tail_probability(H, 'saddlepoint_cc2')
+            ed = approx.tail_probability(H, 'edgeworth')
+            gc_a = approx.tail_probability(H, 'gram_charlier')
+            pag4 = approx.tail_probability(H, 'pam')
+
+            config = ','.join(map(str, sample_sizes))
+            values = [config, N, H, ref_alpha, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4]
+            print_table_row(values, widths)
+
+        print("-" * 124)
+
+
+def reproduce_table_4_5_extended():
+    """Extended Table 4.5: Various 4-group designs"""
+    print_header("Extended Table 4.5: Various 4-group designs")
+
+    configs = [
+        [2, 3, 4, 5], [2, 2, 3, 5], [3, 3, 4, 6], [2, 4, 5, 7],
+        [3, 2, 5, 4], [2, 3, 3, 8], [4, 5, 3, 6], [2, 2, 2, 6],
+    ]
+
+    for alpha in [0.10, 0.05]:
+        print(f"\n--- alpha = {alpha} ---\n")
+
+        headers = ["Config", "E-Q", "E-P", "SRC", "SD1", "SD2", "SDC1", "SDC2", "CHI", "ED", "GC-A", "PAG(4)"]
+        widths = [14, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10]
+
+        print(f"{'-'*120}")
+        print_table_row(headers, widths)
+        print(f"{'-'*120}")
+
+        for sample_sizes in configs:
+            N = sum(sample_sizes)
+            approx = KWApproximator(sample_sizes)
+
+            H, ref_alpha, source = get_reference_critical_value(sample_sizes, alpha, n_simulations=10000)
+
+            sd1 = approx.tail_probability(H, 'saddlepoint')
+            sd2 = approx.tail_probability(H, 'saddlepoint_sd2')
+            sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
+            sdc2 = approx.tail_probability(H, 'saddlepoint_cc2')
+            chi = approx.tail_probability(H, 'chi_square')
+            ed = approx.tail_probability(H, 'edgeworth')
+            gc_a = approx.tail_probability(H, 'gram_charlier')
+            pag4 = approx.tail_probability(H, 'pam')
+
+            config = ','.join(map(str, sample_sizes))
+            src_label = {"exact": "E", "simulation": "S", "chi_square": "C"}[source]
+            values = [config, H, ref_alpha, src_label, sd1, sd2, sdc1, sdc2, chi, ed, gc_a, pag4]
+            print_table_row(values, widths)
+
+        print(f"{'-'*120}")
+        print("  SRC: E=Exact, S=Simulation (10,000 iterations), C=Chi-square")
+
+
+def reproduce_tables_4_6_4_7_extended():
+    """Extended Tables 4.6-4.7: Additional 4-group configs"""
+    print_header("Extended Tables 4.6-4.7: Additional 4-group configs")
+
+    # Original configs
+    original_configs = [
+        [2, 2, 2, 2],
+        [3, 2, 2, 3],
+        [3, 2, 2, 5],
+        [4, 3, 3, 5],
+        [5, 4, 4, 5],
+        [3, 3, 3, 3],
+        [4, 4, 4, 4],
+        [5, 5, 5, 5],
+    ]
+
+    # Additional small (N<=13, exact)
+    additional_small = [
+        [2, 2, 3, 3], [2, 3, 3, 3], [2, 2, 2, 4], [3, 2, 3, 4], [2, 3, 2, 4],
+    ]
+
+    # Additional medium (N=14-25)
+    additional_medium = [
+        [4, 3, 4, 5], [5, 3, 4, 6], [4, 4, 5, 5], [6, 4, 4, 6],
+        [5, 5, 4, 6], [3, 4, 5, 8], [4, 5, 6, 7], [5, 6, 5, 6],
+    ]
+
+    # Additional large (N>=30)
+    additional_large = [
+        [8, 8, 8, 8], [10, 10, 10, 10], [10, 8, 12, 10],
+        [15, 10, 10, 15], [20, 20, 20, 20],
+    ]
+
+    all_configs = original_configs + additional_small + additional_medium + additional_large
+
+    for alpha in [0.10, 0.05]:
+        print(f"\n--- alpha = {alpha} ---\n")
+
+        headers = ["Config", "N", "E-Q", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "GC-A", "PAG(4)"]
+        widths = [14, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10]
+
+        print_table_row(headers, widths)
+        print("-" * 132)
+
+        for sample_sizes in all_configs:
+            N = sum(sample_sizes)
+            approx = KWApproximator(sample_sizes)
+
+            H, ref_alpha, source = get_reference_critical_value(sample_sizes, alpha, n_simulations=10000)
+
+            chi = approx.tail_probability(H, 'chi_square')
+            sd1 = approx.tail_probability(H, 'saddlepoint')
+            sd2 = approx.tail_probability(H, 'saddlepoint_sd2')
+            sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
+            sdc2 = approx.tail_probability(H, 'saddlepoint_cc2')
+            ed = approx.tail_probability(H, 'edgeworth')
+            gc_a = approx.tail_probability(H, 'gram_charlier')
+            pag4 = approx.tail_probability(H, 'pam')
+
+            config = ','.join(map(str, sample_sizes))
+            src_label = {"exact": "E", "simulation": "S", "chi_square": "C"}[source]
+            values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, gc_a, pag4]
+            print_table_row(values, widths)
+
+        print("-" * 132)
+        print("  SRC: E=Exact, S=Simulation (10,000 iterations), C=Chi-square")
+
+
 def main():
     """Main function to run all table reproductions."""
     print("\n" + "#" * 90)
@@ -699,6 +967,13 @@ def main():
     reproduce_table_4_4()
     reproduce_table_4_5()
     reproduce_tables_4_6_4_7()
+
+    # Extended tables
+    reproduce_table_4_1_extended()
+    reproduce_tables_4_2_4_3_unbalanced()
+    reproduce_table_4_4_unbalanced()
+    reproduce_table_4_5_extended()
+    reproduce_tables_4_6_4_7_extended()
 
     # Random designs
     generate_random_three_group_designs(n_designs=10)
