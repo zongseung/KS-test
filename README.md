@@ -31,7 +31,7 @@ KS-test/
 |   |-- __init__.py               #   패키지 초기화 (v0.3.0)
 |   |-- kruskal_wallis.py         #   H 통계량 계산
 |   |-- moments.py                #   모멘트/큐뮬런트 (exact/simulation)
-|   |-- saddlepoint.py            #   새들포인트 근사 (ER1, ER2, Wang, KT + L-R)
+|   |-- saddlepoint.py            #   새들포인트 근사 (ER1, ER2, KT + L-R)
 |   |-- edgeworth.py              #   Edgeworth 전개 (chi-sq 기반 Laguerre)
 |   |-- gram_charlier.py          #   Gram-Charlier Type A (Hermite)
 |   |-- pam.py                    #   PAG(d) 다항식 조정 감마 근사
@@ -85,7 +85,7 @@ KS-test/
      +-----------+ +-----------+         +-----------+ +-----------+
      |Saddlepoint| |Edgeworth  |         |Gram-      | |   PAG(d)  |
      |  ER1/ER2  | |(chi-sq +  |         |Charlier   | | (gamma x  |
-     | Wang/KT   | | Laguerre) |         |Type A     | | polynomial|
+     |    KT     | | Laguerre) |         |Type A     | | polynomial|
      +-----------+ +-----------+         |(Hermite)  | |  d=4,6)   |
      |  +- CC    |                       +-----------+ +-----------+
      |  variants |
@@ -133,9 +133,9 @@ for method, p in results.items():
 | 논문     | 코드 method    | CGF                 | 비고            |
 +----------+----------------+---------------------+-----------------+
 | SD1      | 'ER1'          | Easton-Ronchetti 1  | Saddlepoint     |
-| SD2      | 'Wang'         | Wang damped         | Saddlepoint     |
+| SD2(KT)  | 'KT'           | Kakizawa-Taniguchi  | Saddlepoint     |
 | SDC1     | 'ER1_cc'       | ER1 + CC            | 연속성 보정     |
-| SDC2     | 'Wang_cc'      | Wang + CC           | 연속성 보정     |
+| SDC2(KT) | 'KT_cc'        | KT + CC             | 연속성 보정     |
 | CHI      | 'chi_square'   | -                   | Baseline        |
 | ED       | 'edgeworth'    | -                   | Laguerre 기반   |
 | GC-A     | 'gram_charlier'| -                   | Hermite 기반    |
@@ -145,6 +145,8 @@ for method, p in results.items():
 | -        | 'simulation'   | -                   | MC 시뮬레이션   |
 +----------+----------------+---------------------+-----------------+
 ```
+
+> **참고:** 논문 테이블의 SD2/SDC2 컬럼은 Wang damped CGF에서 **Kakizawa-Taniguchi(KT)** CGF로 교체되었습니다 (헤더 표기 `SD2(KT)` / `SDC2(KT)`). Wang은 N≈15 부근에서 K''(t̂)가 0에 가까워져 Lugannani-Rice 보정항이 폭주하는 수치 불안정이 있어, 다항식 CGF로 안정적인 KT로 대체했습니다. Wang CGF 구현은 삭제하지 않고 코드 주석으로 보존했지만, 현재 실행 경로에서는 비활성화되어 있습니다.
 
 ### 큐뮬런트 (Cumulants) -- Exact Finite-Sample
 
@@ -178,7 +180,7 @@ $$K_H(t) \approx \sum_{i=1}^{4} \frac{\kappa_i t^i}{i!}$$
 **ER2 (Easton-Ronchetti 2nd):**
 $$K_H(t) \approx \kappa_1 t + \frac{\kappa_2}{2}t^2 + \log\left(1 + \frac{\kappa_3}{6}t^3 + \frac{3\kappa_4}{72}t^4 + \frac{\kappa_3^2}{72}t^6\right)$$
 
-**Wang (damped):**
+**Wang (damped, currently disabled and preserved in comments):**
 $$K_H(t) \approx \kappa_1 t + \frac{\kappa_2}{2}t^2 + \left(\frac{\kappa_3}{6}t^3 + \frac{\kappa_4}{24}t^4\right)\eta_p(t)$$
 
 여기서 $\eta_p(t) = \exp(-\kappa_2 p^2 t^2 / 2)$, $p$는 $K''_W(t;p) \geq 0$을 보장하는 최소 damping parameter.
@@ -236,10 +238,10 @@ sample_sizes = [3, 3, 3]
 
 # Saddlepoint with different CGF methods
 sp_er1 = SaddlepointApproximation(sample_sizes, cgf_method='ER1')
-sp_wang = SaddlepointApproximation(sample_sizes, cgf_method='Wang')
+sp_kt = SaddlepointApproximation(sample_sizes, cgf_method='KT')
 
-print(f"ER1:  {sp_er1.tail_probability_lr(4.62):.6f}")
-print(f"Wang: {sp_wang.tail_probability_lr(4.62):.6f}")
+print(f"ER1: {sp_er1.tail_probability_lr(4.62):.6f}")
+print(f"KT:  {sp_kt.tail_probability_lr(4.62):.6f}")
 
 # Exact (소표본)
 exact = ExactDistribution(sample_sizes)
@@ -283,7 +285,7 @@ approx = KWApproximator([5, 5, 5])
 print(f"H statistic: {H:.4f}")
 print(f"SciPy p-value: {result.pvalue:.4f}")
 
-for method in ['exact', 'chi_square', 'ER1', 'Wang', 'edgeworth', 'gram_charlier', 'pam']:
+for method in ['exact', 'chi_square', 'ER1', 'KT', 'edgeworth', 'gram_charlier', 'pam']:
     p = approx.tail_probability(H, method)
     print(f"{method}: {p:.4f}")
 ```
@@ -296,7 +298,7 @@ for method in ['exact', 'chi_square', 'ER1', 'Wang', 'edgeworth', 'gram_charlier
 +---------------+----------+---------------+---------------------------+
 | N <= 15       | k <= 3   | exact         | 정확 분포 계산 가능       |
 | N <= 13       | k = 4    | exact         | 정확 분포 계산 가능       |
-| 15 < N < 100  | any      | ER1, Wang     | 새들포인트 + L-R          |
+| 15 < N < 100  | any      | ER1, KT       | 새들포인트 + L-R          |
 | N >= 100      | any      | chi_square    | 점근 근사 충분            |
 | any           | any      | simulation    | MC 참조값 (느림)          |
 +---------------+----------+---------------+---------------------------+

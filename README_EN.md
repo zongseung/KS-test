@@ -31,7 +31,7 @@ KS-test/
 |   |-- __init__.py               #   Package init (v0.3.0)
 |   |-- kruskal_wallis.py         #   H statistic computation
 |   |-- moments.py                #   Moments/cumulants (exact/simulation)
-|   |-- saddlepoint.py            #   Saddlepoint approx (ER1, ER2, Wang, KT + L-R)
+|   |-- saddlepoint.py            #   Saddlepoint approx (ER1, ER2, KT + L-R)
 |   |-- edgeworth.py              #   Edgeworth expansion (chi-sq + Laguerre)
 |   |-- gram_charlier.py          #   Gram-Charlier Type A (Hermite)
 |   |-- pam.py                    #   PAG(d) polynomially adjusted gamma
@@ -85,7 +85,7 @@ KS-test/
      +-----------+ +-----------+         +-----------+ +-----------+
      |Saddlepoint| |Edgeworth  |         |Gram-      | |   PAG(d)  |
      |  ER1/ER2  | |(chi-sq +  |         |Charlier   | | (gamma x  |
-     | Wang/KT   | | Laguerre) |         |Type A     | | polynomial|
+     |    KT     | | Laguerre) |         |Type A     | | polynomial|
      +-----------+ +-----------+         |(Hermite)  | |  d=4,6)   |
      |  +- CC    |                       +-----------+ +-----------+
      |  variants |
@@ -133,9 +133,9 @@ for method, p in results.items():
 | Paper    | Code method    | CGF                 | Note            |
 +----------+----------------+---------------------+-----------------+
 | SD1      | 'ER1'          | Easton-Ronchetti 1  | Saddlepoint     |
-| SD2      | 'Wang'         | Wang damped         | Saddlepoint     |
+| SD2(KT)  | 'KT'           | Kakizawa-Taniguchi  | Saddlepoint     |
 | SDC1     | 'ER1_cc'       | ER1 + CC            | Cont. corrected |
-| SDC2     | 'Wang_cc'      | Wang + CC           | Cont. corrected |
+| SDC2(KT) | 'KT_cc'        | KT + CC             | Cont. corrected |
 | CHI      | 'chi_square'   | -                   | Baseline        |
 | ED       | 'edgeworth'    | -                   | Laguerre-based  |
 | GC-A     | 'gram_charlier'| -                   | Hermite-based   |
@@ -145,6 +145,8 @@ for method, p in results.items():
 | -        | 'simulation'   | -                   | Monte Carlo     |
 +----------+----------------+---------------------+-----------------+
 ```
+
+> **Note:** The SD2/SDC2 columns in the paper tables were switched from the Wang damped CGF to the **Kakizawa-Taniguchi (KT)** CGF (headed `SD2(KT)` / `SDC2(KT)`). Near N≈15 the Wang CGF makes K''(t̂) collapse toward 0, blowing up the Lugannani-Rice correction term; KT is a polynomial CGF and stays numerically stable. The Wang CGF implementation was preserved in comments rather than deleted, but it is currently disabled in the execution path.
 
 ### Cumulants -- Exact Finite-Sample
 
@@ -178,10 +180,13 @@ $$K_H(t) \approx \sum_{i=1}^{4} \frac{\kappa_i t^i}{i!}$$
 **ER2 (Easton-Ronchetti 2nd):**
 $$K_H(t) \approx \kappa_1 t + \frac{\kappa_2}{2}t^2 + \log\left(1 + \frac{\kappa_3}{6}t^3 + \frac{3\kappa_4}{72}t^4 + \frac{\kappa_3^2}{72}t^6\right)$$
 
-**Wang (damped):**
+**Wang (damped, currently disabled and preserved in comments):**
 $$K_H(t) \approx \kappa_1 t + \frac{\kappa_2}{2}t^2 + \left(\frac{\kappa_3}{6}t^3 + \frac{\kappa_4}{24}t^4\right)\eta_p(t)$$
 
 where $\eta_p(t) = \exp(-\kappa_2 p^2 t^2 / 2)$, and $p$ is the minimum damping parameter ensuring $K''_W(t;p) \geq 0$.
+
+**K-T (Kakizawa-Taniguchi):**
+$$K_H(t) \approx \kappa_1 t + \frac{(1+\kappa_2)}{2}t^2 + \frac{\kappa_3}{6}t^3 + \frac{\kappa_4}{24}t^4$$
 
 ### Edgeworth Expansion
 
@@ -229,10 +234,10 @@ sample_sizes = [3, 3, 3]
 
 # Saddlepoint with different CGF methods
 sp_er1 = SaddlepointApproximation(sample_sizes, cgf_method='ER1')
-sp_wang = SaddlepointApproximation(sample_sizes, cgf_method='Wang')
+sp_kt = SaddlepointApproximation(sample_sizes, cgf_method='KT')
 
-print(f"ER1:  {sp_er1.tail_probability_lr(4.62):.6f}")
-print(f"Wang: {sp_wang.tail_probability_lr(4.62):.6f}")
+print(f"ER1: {sp_er1.tail_probability_lr(4.62):.6f}")
+print(f"KT:  {sp_kt.tail_probability_lr(4.62):.6f}")
 
 # Exact (small samples only)
 exact = ExactDistribution(sample_sizes)
@@ -265,7 +270,7 @@ for alpha in [0.10, 0.05, 0.01]:
 +---------------+----------+---------------+---------------------------+
 | N <= 15       | k <= 3   | exact         | Exact distribution        |
 | N <= 13       | k = 4    | exact         | Exact distribution        |
-| 15 < N < 100  | any      | ER1, Wang     | Saddlepoint + L-R         |
+| 15 < N < 100  | any      | ER1, KT       | Saddlepoint + L-R         |
 | N >= 100      | any      | chi_square    | Asymptotic sufficient     |
 | any           | any      | simulation    | MC reference (slow)       |
 +---------------+----------+---------------+---------------------------+
