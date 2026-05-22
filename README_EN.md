@@ -102,9 +102,15 @@ KS-test/
 ## Installation
 
 ```bash
-pip install numpy scipy
-pip install -e .
+# uv (recommended) — after cloning, install dependencies + the package (editable)
+uv sync
+uv sync --extra dev     # also include dev tools (pytest, etc.)
+
+# Using pip instead (numpy/scipy resolved from pyproject dependencies)
+pip install -e ".[dev]"
 ```
+
+Run scripts with `uv run python <script>`.
 
 ## Quick Start
 

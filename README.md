@@ -102,9 +102,15 @@ KS-test/
 ## 설치
 
 ```bash
-pip install numpy scipy
-pip install -e .
+# uv (권장) — 저장소 클론 후, 의존성 + 패키지를 editable 모드로 설치
+uv sync
+uv sync --extra dev     # pytest 등 개발 도구까지 포함
+
+# pip 를 쓰는 경우 (numpy/scipy 는 pyproject 의존성으로 자동 설치)
+pip install -e ".[dev]"
 ```
+
+설치 후 스크립트는 `uv run python <script>` 로 실행합니다.
 
 ## 빠른 시작
 
