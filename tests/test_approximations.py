@@ -354,8 +354,11 @@ class TestKWApproximator:
         approx = KWApproximator([3, 3, 3])
         h = 4.0
 
-        for method in ['chi_square', 'saddlepoint', 'saddlepoint_sd2',
-                       'saddlepoint_cc', 'saddlepoint_cc2',
+        for method in ['chi_square', 'saddlepoint',
+                       # 'saddlepoint_sd2',
+                       'saddlepoint_cc',
+                       # 'saddlepoint_cc2',
+                       'KT', 'KT_cc',
                        'pam', 'pam6', 'gram_charlier', 'edgeworth', 'exact']:
             try:
                 p = approx.tail_probability(h, method)
@@ -368,8 +371,8 @@ class TestKWApproximator:
         approx = KWApproximator([3, 3, 3])
         results = approx.compare_methods(4.62)
         
-        # Should have results for all methods
-        assert len(results) >= 6
+        # Should have results for default CGF methods plus references.
+        assert len(results) >= 5
         
         # All values should be probabilities
         for method, p in results.items():

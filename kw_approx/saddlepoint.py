@@ -31,7 +31,8 @@ class SaddlepointApproximation:
         Sample sizes for each group [n1, n2, ..., nk]
     cgf_method : str
         Method for cumulant generating function approximation.
-        Options: 'exact', 'ER1', 'ER2', 'Wang', 'KT'
+        Options: 'exact', 'ER1', 'ER2', 'KT'
+        Wang code is preserved below but currently commented out.
         Default: 'ER1' (Easton-Ronchetti first approximation)
     
     Attributes
@@ -48,87 +49,90 @@ class SaddlepointApproximation:
         # Compute moments (need at least 4 for saddlepoint)
         self.moments = KWMoments(sample_sizes, max_moment=6)
         
+        if cgf_method == 'Wang':
+            raise ValueError("Wang CGF is currently commented out/disabled.")
+
         self.cgf_method = cgf_method
-        self._wang_p_cache = None
+        # self._wang_p_cache = None
         
         # Cache cumulants for CGF computations
         self._kappa = self.moments.cumulants
 
-    def _wang_second_derivative(self, t: float, p: float) -> float:
-        """Analytic K'' for Wang's CGF.
-
-        Paper formula (Section 3.2):
-        KW(t;p) = κ₁t + κ₂t²/2 + (κ₃t³/6 + κ₄t⁴/24)·η_p(t)
-        where η_p(t) = exp(-κ₂·p²·t²/2).
-
-        K'' = κ₂ + d²/dt² [(κ₃t³/6 + κ₄t⁴/24)·η]
-        """
-        kappa = self._kappa
-        if kappa[2] <= 0:
-            return kappa[2] + kappa[3] * t + kappa[4] * t**2 / 2
-        a = kappa[2] * p**2
-        eta = np.exp(-a * t**2 / 2)
-        d_eta = -a * t * eta
-        dd_eta = (-a + a**2 * t**2) * eta
-
-        # f(t) = κ₃t³/6 + κ₄t⁴/24
-        f = kappa[3] * t**3 / 6 + kappa[4] * t**4 / 24
-        fp = kappa[3] * t**2 / 2 + kappa[4] * t**3 / 6
-        fpp = kappa[3] * t + kappa[4] * t**2 / 2
-
-        # d²/dt²[f·η] = f''·η + 2·f'·η' + f·η''
-        return kappa[2] + fpp * eta + 2 * fp * d_eta + f * dd_eta
-
-    def _get_wang_p(self) -> float:
-        """
-        Select Wang's p following the paper rule:
-            p = max(1/2, inf{q | K''_W(t; q) >= 0 for all t in H}).
-        We approximate the infimum numerically on a dense finite t-grid.
-        """
-        if self._wang_p_cache is not None:
-            return self._wang_p_cache
-
-        q_min = 0.5
-        if self._kappa[2] <= 0:
-            self._wang_p_cache = q_min
-            return self._wang_p_cache
-
-        t_max = max(8.0, 4.0 / np.sqrt(max(self._kappa[2], 1e-12)))
-        t_grid = np.linspace(-t_max, t_max, 801)
-
-        def is_convex(q: float) -> bool:
-            vals = np.array([self._wang_second_derivative(t, q) for t in t_grid], dtype=float)
-            return np.all(vals >= -1e-10)
-
-        if is_convex(q_min):
-            self._wang_p_cache = q_min
-            return self._wang_p_cache
-
-        q_lo = q_min
-        q_hi = 1.0
-        found = False
-        for _ in range(20):
-            if is_convex(q_hi):
-                found = True
-                break
-            q_hi *= 1.5
-            if q_hi > 8.0:
-                break
-
-        if not found:
-            # If no convex q is found in practical range, default to q=1/2.
-            self._wang_p_cache = q_min
-            return self._wang_p_cache
-
-        for _ in range(40):
-            q_mid = 0.5 * (q_lo + q_hi)
-            if is_convex(q_mid):
-                q_hi = q_mid
-            else:
-                q_lo = q_mid
-
-        self._wang_p_cache = max(q_min, q_hi)
-        return self._wang_p_cache
+    # def _wang_second_derivative(self, t: float, p: float) -> float:
+    #     """Analytic K'' for Wang's CGF.
+    #
+    #     Paper formula (Section 3.2):
+    #     KW(t;p) = κ₁t + κ₂t²/2 + (κ₃t³/6 + κ₄t⁴/24)·η_p(t)
+    #     where η_p(t) = exp(-κ₂·p²·t²/2).
+    #
+    #     K'' = κ₂ + d²/dt² [(κ₃t³/6 + κ₄t⁴/24)·η]
+    #     """
+    #     kappa = self._kappa
+    #     if kappa[2] <= 0:
+    #         return kappa[2] + kappa[3] * t + kappa[4] * t**2 / 2
+    #     a = kappa[2] * p**2
+    #     eta = np.exp(-a * t**2 / 2)
+    #     d_eta = -a * t * eta
+    #     dd_eta = (-a + a**2 * t**2) * eta
+    #
+    #     # f(t) = κ₃t³/6 + κ₄t⁴/24
+    #     f = kappa[3] * t**3 / 6 + kappa[4] * t**4 / 24
+    #     fp = kappa[3] * t**2 / 2 + kappa[4] * t**3 / 6
+    #     fpp = kappa[3] * t + kappa[4] * t**2 / 2
+    #
+    #     # d²/dt²[f·η] = f''·η + 2·f'·η' + f·η''
+    #     return kappa[2] + fpp * eta + 2 * fp * d_eta + f * dd_eta
+    #
+    # def _get_wang_p(self) -> float:
+    #     """
+    #     Select Wang's p following the paper rule:
+    #         p = max(1/2, inf{q | K''_W(t; q) >= 0 for all t in H}).
+    #     We approximate the infimum numerically on a dense finite t-grid.
+    #     """
+    #     if self._wang_p_cache is not None:
+    #         return self._wang_p_cache
+    #
+    #     q_min = 0.5
+    #     if self._kappa[2] <= 0:
+    #         self._wang_p_cache = q_min
+    #         return self._wang_p_cache
+    #
+    #     t_max = max(8.0, 4.0 / np.sqrt(max(self._kappa[2], 1e-12)))
+    #     t_grid = np.linspace(-t_max, t_max, 801)
+    #
+    #     def is_convex(q: float) -> bool:
+    #         vals = np.array([self._wang_second_derivative(t, q) for t in t_grid], dtype=float)
+    #         return np.all(vals >= -1e-10)
+    #
+    #     if is_convex(q_min):
+    #         self._wang_p_cache = q_min
+    #         return self._wang_p_cache
+    #
+    #     q_lo = q_min
+    #     q_hi = 1.0
+    #     found = False
+    #     for _ in range(20):
+    #         if is_convex(q_hi):
+    #             found = True
+    #             break
+    #         q_hi *= 1.5
+    #         if q_hi > 8.0:
+    #             break
+    #
+    #     if not found:
+    #         # If no convex q is found in practical range, default to q=1/2.
+    #         self._wang_p_cache = q_min
+    #         return self._wang_p_cache
+    #
+    #     for _ in range(40):
+    #         q_mid = 0.5 * (q_lo + q_hi)
+    #         if is_convex(q_mid):
+    #             q_hi = q_mid
+    #         else:
+    #             q_lo = q_mid
+    #
+    #     self._wang_p_cache = max(q_min, q_hi)
+    #     return self._wang_p_cache
     
     def cumulant_generating_function(self, t: float) -> float:
         """
@@ -173,16 +177,16 @@ class SaddlepointApproximation:
                         kappa[3] * t**3 / 6 + 
                         kappa[4] * t**4 / 24)
         
-        elif self.cgf_method == 'Wang':
-            # Wang (1992) approximation with damping (paper Section 3.2):
-            # KW(t;p) = κ₁t + κ₂t²/2 + (κ₃t³/6 + κ₄t⁴/24)·η_p(t)
-            # where η_p(t) = exp(-κ₂·p²·t²/2)
-            p = self._get_wang_p()
-            a = kappa[2] * p**2
-            eta = np.exp(-a * t**2 / 2)
-            return (kappa[1] * t +
-                    kappa[2] * t**2 / 2 +
-                    (kappa[3] * t**3 / 6 + kappa[4] * t**4 / 24) * eta)
+        # elif self.cgf_method == 'Wang':
+        #     # Wang (1992) approximation with damping (paper Section 3.2):
+        #     # KW(t;p) = κ₁t + κ₂t²/2 + (κ₃t³/6 + κ₄t⁴/24)·η_p(t)
+        #     # where η_p(t) = exp(-κ₂·p²·t²/2)
+        #     p = self._get_wang_p()
+        #     a = kappa[2] * p**2
+        #     eta = np.exp(-a * t**2 / 2)
+        #     return (kappa[1] * t +
+        #             kappa[2] * t**2 / 2 +
+        #             (kappa[3] * t**3 / 6 + kappa[4] * t**4 / 24) * eta)
         
         elif self.cgf_method == 'KT':
             # Kakizawa-Taniguchi (1994) correction
@@ -237,16 +241,16 @@ class SaddlepointApproximation:
                         kappa[3] * t**2 / 2 + 
                         kappa[4] * t**3 / 6)
         
-        elif self.cgf_method == 'Wang':
-            # d/dt[KW] = κ₁ + κ₂t + d/dt[(κ₃t³/6 + κ₄t⁴/24)·η]
-            # = κ₁ + κ₂t + f'·η + f·η'
-            p = self._get_wang_p()
-            a = kappa[2] * p**2
-            eta = np.exp(-a * t**2 / 2)
-            d_eta = -a * t * eta
-            f = kappa[3] * t**3 / 6 + kappa[4] * t**4 / 24
-            fp = kappa[3] * t**2 / 2 + kappa[4] * t**3 / 6
-            return kappa[1] + kappa[2] * t + fp * eta + f * d_eta
+        # elif self.cgf_method == 'Wang':
+        #     # d/dt[KW] = κ₁ + κ₂t + d/dt[(κ₃t³/6 + κ₄t⁴/24)·η]
+        #     # = κ₁ + κ₂t + f'·η + f·η'
+        #     p = self._get_wang_p()
+        #     a = kappa[2] * p**2
+        #     eta = np.exp(-a * t**2 / 2)
+        #     d_eta = -a * t * eta
+        #     f = kappa[3] * t**3 / 6 + kappa[4] * t**4 / 24
+        #     fp = kappa[3] * t**2 / 2 + kappa[4] * t**3 / 6
+        #     return kappa[1] + kappa[2] * t + fp * eta + f * d_eta
 
         elif self.cgf_method == 'KT':
             # K_KT(t) = κ₁t + ((1+κ₂)/2)t² + (κ₃/6)t³ + (κ₄/24)t⁴
@@ -284,9 +288,9 @@ class SaddlepointApproximation:
             # K_KT(t) = κ₁t + ((1+κ₂)/2)t² + (κ₃/6)t³ + (κ₄/24)t⁴
             # K''_KT(t) = (1+κ₂) + κ₃t + (κ₄/2)t²
             return (1 + kappa[2]) + kappa[3] * t + kappa[4] * t**2 / 2
-        elif self.cgf_method == 'Wang':
-            p = self._get_wang_p()
-            return self._wang_second_derivative(t, p)
+        # elif self.cgf_method == 'Wang':
+        #     p = self._get_wang_p()
+        #     return self._wang_second_derivative(t, p)
 
         else:
             # Numerical derivative as fallback
@@ -300,7 +304,7 @@ class SaddlepointApproximation:
         if self.cgf_method in ['ER1', 'KT', 'exact']:
             return kappa[3] + kappa[4] * t
         else:
-            # Numerical derivative for ER2, Wang, and other methods
+            # Numerical derivative for ER2 and other methods
             h = 1e-6
             return (self.cgf_derivative2(t + h) - self.cgf_derivative2(t - h)) / (2 * h)
     

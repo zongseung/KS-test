@@ -7,7 +7,8 @@ Kruskal-Wallis statistic as described in:
 Murakami, H., Lee, J.-S. and Ha, H.-T. "Higher Order Asymptotic Approximations
 of Kruskal-Wallis Statistics Based on Skewness and Kurtosis"
 
-CGF methods: ER1, ER2, Wang, K-T (all with Lugannani-Rice tail probability)
+CGF methods: ER1, ER2, K-T (all with Lugannani-Rice tail probability)
+Wang support is preserved in comments but currently disabled.
 All methods use exact finite-sample cumulants (Section 4 of the paper).
 
 References:

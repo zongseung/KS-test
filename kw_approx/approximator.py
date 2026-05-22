@@ -1,8 +1,8 @@
 """
 Unified Approximator Interface for Kruskal-Wallis Statistics
 
-Provides a single interface to access all CGF-based saddlepoint approximation
-methods (ER1, ER2, Wang, K-T) with Lugannani-Rice tail probability.
+Provides a single interface to access CGF-based saddlepoint approximation
+methods (ER1, ER2, K-T) with Lugannani-Rice tail probability.
 
 References:
 - Murakami & Ha: Higher Order Asymptotic Approximations of Kruskal-Wallis Statistics
@@ -27,7 +27,7 @@ class KWApproximator:
     """
     Unified interface for Kruskal-Wallis saddlepoint approximation methods.
 
-    Supports four CGF approximations (ER1, ER2, Wang, K-T) with
+    Supports CGF approximations (ER1, ER2, K-T) with
     Lugannani-Rice tail probability, plus chi-square baseline and
     exact/simulation references.
 
@@ -49,32 +49,38 @@ class KWApproximator:
     """
 
     # CGF methods with L-R tail probability
-    CGF_METHODS = ['ER1', 'ER2', 'Wang', 'KT']
+    CGF_METHODS = [
+        'ER1',
+        'ER2',
+        # 'Wang',
+        'KT',
+    ]
 
     # Aliases for convenience.
     # Paper Section 4.1: SD1=K_ER1+LR, SD2=K_W(Wang)+LR
     # SDC1=SD1+CC, SDC2=SD2+CC
+    # Wang aliases are preserved here but commented out while Wang is disabled.
     METHOD_ALIASES = {
         'saddlepoint': 'ER1',
-        'saddlepoint_sd2': 'Wang',
+        # 'saddlepoint_sd2': 'Wang',
         'saddlepoint_cc': 'ER1_cc',
-        'saddlepoint_cc2': 'Wang_cc',
+        # 'saddlepoint_cc2': 'Wang_cc',
         # Paper table notation
         'SD1': 'ER1',
-        'SD2': 'Wang',
+        # 'SD2': 'Wang',
         'SDC1': 'ER1_cc',
-        'SDC2': 'Wang_cc',
+        # 'SDC2': 'Wang_cc',
     }
 
     AVAILABLE_METHODS = [
         'chi_square',   # Traditional chi-square approximation (baseline)
         'ER1',          # Easton-Ronchetti 1st CGF + Lugannani-Rice
         'ER2',          # Easton-Ronchetti 2nd CGF + Lugannani-Rice
-        'Wang',         # Wang damped CGF + Lugannani-Rice
+        # 'Wang',       # Wang damped CGF + Lugannani-Rice
         'KT',           # Kakizawa-Taniguchi CGF + Lugannani-Rice
         'ER1_cc',       # ER1 with continuity correction
         'ER2_cc',       # ER2 with continuity correction
-        'Wang_cc',      # Wang with continuity correction
+        # 'Wang_cc',    # Wang with continuity correction
         'KT_cc',        # KT with continuity correction
         'edgeworth',    # Edgeworth expansion approximation
         'edgeworth_hk', # Hall/Kolassa Edgeworth with asymptotic cumulants (ED-HK)
@@ -305,7 +311,7 @@ class KWApproximator:
         h : float
             H statistic value
         methods : List[str], optional
-            Methods to compare. If None, uses chi_square + 4 CGF methods.
+            Methods to compare. If None, uses chi_square + active CGF methods.
 
         Returns
         -------
