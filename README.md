@@ -31,7 +31,7 @@ KS-test/
 |   |-- __init__.py               #   패키지 초기화 (v0.3.0)
 |   |-- kruskal_wallis.py         #   H 통계량 계산
 |   |-- moments.py                #   모멘트/큐뮬런트 (exact/simulation)
-|   |-- saddlepoint.py            #   새들포인트 근사 (ER1, ER2 + L-R)
+|   |-- saddlepoint.py            #   새들포인트 근사 (ER1/ER2 + L-R, WBB gamma-base = SD2)
 |   |-- edgeworth.py              #   Edgeworth 전개 (chi-sq 기반 Laguerre)
 |   |-- gram_charlier.py          #   Gram-Charlier Type A (Hermite)
 |   |-- pam.py                    #   PAG(d) 다항식 조정 감마 근사
@@ -40,7 +40,8 @@ KS-test/
 |   +-- approximator.py           #   통합 인터페이스 (KWApproximator)
 |
 |-- examples/
-|   +-- reproduce_paper_tables.py #   논문 Table 4.1~4.7 재현 + 확장
+|   |-- reproduce_paper_tables.py #   논문 Table 4.1~4.7 재현 + 확장
+|   +-- tables_to_latex.py        #   raw 출력 -> LaTeX (n1,n2,n3,n4 오름차순)
 |
 |-- tests/
 |   +-- test_approximations.py    #   37개 테스트 케이스
@@ -135,22 +136,28 @@ for method, p in results.items():
 ### 방법 일람 (논문 <-> 코드)
 
 ```
-+----------+----------------+---------------------+-----------------+
-| 논문     | 코드 method    | CGF                 | 비고            |
-+----------+----------------+---------------------+-----------------+
-| SD1      | 'ER1'          | Easton-Ronchetti 1  | Saddlepoint     |
-| SDC1     | 'ER1_cc'       | ER1 + CC            | 연속성 보정     |
-| CHI      | 'chi_square'   | -                   | Baseline        |
-| ED       | 'edgeworth'    | -                   | Laguerre 기반   |
-| GC-A     | 'gram_charlier'| -                   | Hermite 기반    |
-| PAG(4)   | 'pam'          | -                   | 감마 x 다항식   |
-| PAG(6)   | 'pam6'         | -                   | 감마 x 다항식   |
-| -        | 'exact'        | -                   | 소표본 전용     |
-| -        | 'simulation'   | -                   | MC 시뮬레이션   |
-+----------+----------------+---------------------+-----------------+
++----------+--------------------+----------------------+-----------------------+
+| 논문     | 코드 method        | 기저 / CGF           | 비고                  |
++----------+--------------------+----------------------+-----------------------+
+| SD1      | 'ER1' / 'SD1'      | K_ER1 (4항 다항식)   | Saddlepoint + L-R     |
+| SD2      | 'gamma' / 'SD2'    | gamma base (WBB '93) | 비정규 base L-R       |
+| SDC1     | 'ER1_cc' / 'SDC1'  | ER1 + CC             | 연속성 보정           |
+| SDC2     | 'gamma_cc' / 'SDC2'| gamma base + CC      | WBB + 연속성 보정     |
+| CHI      | 'chi_square'       | -                    | Baseline (chi-sq)     |
+| ED       | 'edgeworth'        | -                    | Laguerre 기반         |
+| GC-A     | 'gram_charlier'    | -                    | Hermite 기반          |
+| PAG(4)   | 'pam'              | -                    | 감마 x 다항식 (d=4)   |
+| PAG(6)   | 'pam6'             | -                    | 감마 x 다항식 (d=6)   |
+| -        | 'exact'            | -                    | 소표본 전용 (열거)    |
+| -        | 'simulation'       | -                    | MC 시뮬레이션         |
++----------+--------------------+----------------------+-----------------------+
 ```
 
-> **참고:** Wang CGF 구현은 삭제하지 않고 코드 주석으로 보존했지만, 현재 실행 경로에서는 비활성화되어 있습니다. Kakizawa--Taniguchi(KT) 계열은 H-scale에서 ER1과 동일한 4-큐뮬런트 다항식으로 귀착되므로 논문 테이블의 독립 컬럼에서는 제외했습니다.
+> **SD2 / 폐기 CGF 메모:**
+>
+> - **SD2 / SDC2 = Wood-Booth-Butler (1993) gamma-based saddlepoint.** 논문 §4.2가 이미 인용·기술하는 비정규 base Lugannani--Rice. 구현은 `saddlepoint.py`의 `tail_probability_gamma_based(v, continuity_correction=False)`. 표 컬럼은 `SD2(WBB)` / `SDC2(WBB)`.
+> - **Wang** damped CGF는 N≈15 부근에서 $K''(\hat t)$ 가 0 근방으로 붕괴해 Lugannani--Rice가 폭주합니다 (예: (5,5,5) α=0.05 → 0.504, 참값 ~0.05). 코드 주석으로 보존, 실행 경로 비활성.
+> - **KT** $(1+\kappa_2)$ 다항식 CGF는 Kakizawa-Taniguchi (1994)에 그 식이 없습니다 (그 논문은 Edgeworth↔saddlepoint 차수 관계 이론). 점근적으로도 비일관(분산을 ~30% 고정 부풀림)이라 폐기.
 
 ### 큐뮬런트 (Cumulants) -- Exact Finite-Sample
 
@@ -189,8 +196,30 @@ $$K_H(t) \approx \kappa_1 t + \frac{\kappa_2}{2}t^2 + \left(\frac{\kappa_3}{6}t^
 
 여기서 $\eta_p(t) = \exp(-\kappa_2 p^2 t^2 / 2)$, $p$는 $K''_W(t;p) \geq 0$을 보장하는 최소 damping parameter.
 
-**KT 관련 메모:**
-Kakizawa--Taniguchi 논문은 정규화된 통계량의 saddlepoint--Edgeworth 고차 관계를 다루며, Kruskal--Wallis용 별도 CGF를 제안하지 않습니다. H-scale에 맞게 옮기면 ER1과 동일해지므로 표에서는 별도 방법으로 보고하지 않습니다.
+**SD2 / SDC2 — gamma-based saddlepoint (Wood, Booth & Butler 1993):**
+
+다항식 CGF를 정규 base Lugannani--Rice에 대입하는 SD1과 달리, SD2는 **base 분포를 정규에서 감마(첫 두 모멘트 매칭)로 바꾼** 비정규 base saddlepoint입니다. H-스케일 새들포인트 $\hat t$ 를 감마 기준족에 CGF 지수 매칭으로 사상:
+
+$$K_G(t_\xi)\, -\, t_\xi\, \xi\ =\ K_H(\hat t)\, -\, \hat t\, v.$$
+
+곡률 비를 반영한 $u_{\hat\xi} = \hat t\,\sqrt{K_H^{(2)}(\hat t)\,/\,K_G^{(2)}(t_{\hat\xi})}$ 로
+
+$$\Pr(H \geq v)\ \approx\ 1 - G(\hat\xi)\ +\ g(\hat\xi)\left(\tfrac{1}{u_{\hat\xi}} - \tfrac{1}{t_{\hat\xi}}\right).$$
+
+H의 정확 CGF는 닫힌형이 없어 $K_H$ 자리에 ER1 다항식을 씁니다(불가피한 본질적 한계). 그래도 base가 χ² 형태에 맞춰져 정규 base보다 부드럽고, Wang처럼 폭주하지도 않습니다.
+
+```python
+from kw_approx import KWApproximator
+
+approx = KWApproximator([5, 5, 5])
+p_sd2  = approx.tail_probability(4.5, 'SD2')    # gamma-WBB
+p_sdc2 = approx.tail_probability(4.5, 'SDC2')   # + 연속성 보정
+```
+
+**폐기된 KT 메모:**
+한때 $K_{\rm KT}(t)=\kappa_1 t+(1+\kappa_2)t^2/2+\kappa_3 t^3/6+\kappa_4 t^4/24$ 형태를 SD2로 시도했으나, Kakizawa--Taniguchi (1994)에 이 식이 없습니다(그 논문은 Edgeworth↔saddlepoint 차수 관계 이론 논문). $(1+\kappa_2)$ 항은 χ² 극한에서 분산을 약 30% 부풀리는 비일관 근사라 폐기했습니다.
+
+**정확도 관찰 (참고):** SD1과 SD2(WBB)는 동등 수준이며 (196행 평균 절대오차 ~0.008), **PAG(4)가 가장 정확합니다** (MAE ~0.004). 이는 PAG가 CGF 절단 단계를 거치지 않고 모멘트를 직접 감마×다항식에 fitting하기 때문이며, KW에 닫힌형 CGF가 없는 한 saddlepoint 계열의 구조적 한계입니다.
 
 ### 연속성 보정 (Continuity Correction)
 
@@ -315,8 +344,12 @@ python -m pytest tests/test_approximations.py -v
 # 단일 테스트 클래스
 python -m pytest tests/test_approximations.py::TestKWMoments -v
 
-# 논문 테이블 재현
-uv run python examples/reproduce_paper_tables.py
+# 논문 테이블 재현 (raw 텍스트로 저장)
+uv run python examples/reproduce_paper_tables.py > result/paper_tables_raw.txt
+
+# LaTeX로 변환 (n1, n2, n3, n4 오름차순 정렬, SD2/SDC2(WBB) 컬럼)
+uv run python examples/tables_to_latex.py
+# -> result/paper_tables.tex 생성
 ```
 
 ## 의존성
@@ -334,8 +367,9 @@ uv run python examples/reproduce_paper_tables.py
 5. Lugannani, R. & Rice, S. O. (1980). Saddlepoint approximation for the distribution of the sum of independent random variables. *Advances in Applied Probability*, 12, 475-490.
 6. Easton, G. S. & Ronchetti, E. (1986). General saddlepoint approximations with applications to L statistics. *JASA*, 81, 420-430.
 7. Wang, S. (1992). General saddlepoint approximations in the bootstrap. *Statistics & Probability Letters*, 13, 61-66.
-8. Ha, H.-T. & Provost, S. B. (2007). A viable alternative to resorting to statistical tables. *Communications in Statistics*, 36, 1135-1151.
-9. Hall, P. (1992). *The Bootstrap and Edgeworth Expansion*. Springer.
+8. Wood, A. T. A., Booth, J. G., & Butler, R. W. (1993). Saddlepoint approximations to the CDF of some statistics with nonnormal limit distributions. *JASA*, 88, 680-686. *(SD2 / SDC2의 근거)*
+9. Ha, H.-T. & Provost, S. B. (2007). A viable alternative to resorting to statistical tables. *Communications in Statistics*, 36, 1135-1151.
+10. Hall, P. (1992). *The Bootstrap and Edgeworth Expansion*. Springer.
 
 ## 라이선스
 
