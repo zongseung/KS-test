@@ -31,7 +31,7 @@ KS-test/
 |   |-- __init__.py               #   Package init (v0.3.0)
 |   |-- kruskal_wallis.py         #   H statistic computation
 |   |-- moments.py                #   Moments/cumulants (exact/simulation)
-|   |-- saddlepoint.py            #   Saddlepoint approx (ER1, ER2 + L-R)
+|   |-- saddlepoint.py            #   Saddlepoint approx (ER1/ER2 + L-R, WBB gamma-base = SD2)
 |   |-- edgeworth.py              #   Edgeworth expansion (chi-sq + Laguerre)
 |   |-- gram_charlier.py          #   Gram-Charlier Type A (Hermite)
 |   |-- pam.py                    #   PAG(d) polynomially adjusted gamma
@@ -40,7 +40,8 @@ KS-test/
 |   +-- approximator.py           #   Unified interface (KWApproximator)
 |
 |-- examples/
-|   +-- reproduce_paper_tables.py #   Reproduce paper Tables 4.1-4.7 + extensions
+|   |-- reproduce_paper_tables.py #   Reproduce paper Tables 4.1-4.7 + extensions
+|   +-- tables_to_latex.py        #   Raw text -> LaTeX (sorted by n1,n2,n3,n4)
 |
 |-- tests/
 |   +-- test_approximations.py    #   37 test cases
@@ -135,22 +136,28 @@ for method, p in results.items():
 ### Method Naming (Paper <-> Code)
 
 ```
-+----------+----------------+---------------------+-----------------+
-| Paper    | Code method    | CGF                 | Note            |
-+----------+----------------+---------------------+-----------------+
-| SD1      | 'ER1'          | Easton-Ronchetti 1  | Saddlepoint     |
-| SDC1     | 'ER1_cc'       | ER1 + CC            | Cont. corrected |
-| CHI      | 'chi_square'   | -                   | Baseline        |
-| ED       | 'edgeworth'    | -                   | Laguerre-based  |
-| GC-A     | 'gram_charlier'| -                   | Hermite-based   |
-| PAG(4)   | 'pam'          | -                   | Gamma x poly    |
-| PAG(6)   | 'pam6'         | -                   | Gamma x poly    |
-| -        | 'exact'        | -                   | Small N only    |
-| -        | 'simulation'   | -                   | Monte Carlo     |
-+----------+----------------+---------------------+-----------------+
++----------+--------------------+----------------------+-----------------------+
+| Paper    | Code method        | Base / CGF           | Note                  |
++----------+--------------------+----------------------+-----------------------+
+| SD1      | 'ER1' / 'SD1'      | K_ER1 (4-term poly)  | Saddlepoint + L-R     |
+| SD2      | 'gamma' / 'SD2'    | gamma base (WBB '93) | Non-normal base L-R   |
+| SDC1     | 'ER1_cc' / 'SDC1'  | ER1 + CC             | Continuity corrected  |
+| SDC2     | 'gamma_cc' / 'SDC2'| gamma base + CC      | WBB + cont. correction|
+| CHI      | 'chi_square'       | -                    | Baseline (chi-sq)     |
+| ED       | 'edgeworth'        | -                    | Laguerre-based        |
+| GC-A     | 'gram_charlier'    | -                    | Hermite-based         |
+| PAG(4)   | 'pam'              | -                    | Gamma x poly (d=4)    |
+| PAG(6)   | 'pam6'             | -                    | Gamma x poly (d=6)    |
+| -        | 'exact'            | -                    | Small N enumeration   |
+| -        | 'simulation'       | -                    | Monte Carlo           |
++----------+--------------------+----------------------+-----------------------+
 ```
 
-> **Note:** The Wang CGF implementation was preserved in comments rather than deleted, but it is currently disabled in the execution path. The Kakizawa--Taniguchi (KT) route reduces to the same four-cumulant polynomial as ER1 on the H scale, so it is not reported as a separate table column.
+> **SD2 / disabled CGF notes:**
+>
+> - **SD2 / SDC2 = Wood-Booth-Butler (1993) gamma-based saddlepoint.** The non-normal-base Lugannani--Rice approximation already described and cited in paper §4.2. Implemented in `saddlepoint.py` as `tail_probability_gamma_based(v, continuity_correction=False)`. Table columns are `SD2(WBB)` / `SDC2(WBB)`.
+> - **Wang** damped CGF: $K''(\hat t)$ collapses toward 0 deep in the tail near $N \approx 15$, blowing up Lugannani--Rice (e.g. (5,5,5) at $\alpha = 0.05$ returns 0.504 vs. reference ~0.05). Kept as comments, disabled in the execution path.
+> - **KT** $(1+\kappa_2)$ polynomial CGF: not present in Kakizawa-Taniguchi (1994) — that paper studies higher-order Edgeworth↔saddlepoint relations, not CGFs. The $(1+\kappa_2)$ shift is also asymptotically inconsistent (inflates variance by ~30% even as $N \to \infty$), so it was removed.
 
 ### Cumulants -- Exact Finite-Sample
 
@@ -189,8 +196,30 @@ $$K_H(t) \approx \kappa_1 t + \frac{\kappa_2}{2}t^2 + \left(\frac{\kappa_3}{6}t^
 
 where $\eta_p(t) = \exp(-\kappa_2 p^2 t^2 / 2)$, and $p$ is the minimum damping parameter ensuring $K''_W(t;p) \geq 0$.
 
-**KT note:**
-The Kakizawa--Taniguchi paper studies higher-order saddlepoint--Edgeworth relations for normalized statistics and does not introduce a separate Kruskal-Wallis CGF. On the H scale it reduces to ER1, so it is not reported as a distinct method.
+**SD2 / SDC2 — gamma-based saddlepoint (Wood, Booth & Butler 1993):**
+
+Unlike SD1, which substitutes a polynomial CGF into the *normal*-base Lugannani--Rice formula, SD2 changes the **base distribution itself** from normal to gamma (matched to the first two moments of H). The H-scale saddlepoint $\hat t$ is mapped onto the gamma reference family by CGF-exponent matching:
+
+$$K_G(t_\xi)\, -\, t_\xi\, \xi\ =\ K_H(\hat t)\, -\, \hat t\, v.$$
+
+With a curvature-ratio correction $u_{\hat\xi} = \hat t\,\sqrt{K_H^{(2)}(\hat t)\,/\,K_G^{(2)}(t_{\hat\xi})}$,
+
+$$\Pr(H \geq v)\ \approx\ 1 - G(\hat\xi)\ +\ g(\hat\xi)\left(\tfrac{1}{u_{\hat\xi}} - \tfrac{1}{t_{\hat\xi}}\right).$$
+
+Because H has no closed-form CGF, $K_H$ in the formula is the ER1 polynomial (an unavoidable structural limitation). Nonetheless the gamma base aligns with the $\chi^2$-like target shape and avoids Wang-type blow-up.
+
+```python
+from kw_approx import KWApproximator
+
+approx = KWApproximator([5, 5, 5])
+p_sd2  = approx.tail_probability(4.5, 'SD2')    # gamma-WBB
+p_sdc2 = approx.tail_probability(4.5, 'SDC2')   # + continuity correction
+```
+
+**Disabled KT note:**
+An earlier attempt used $K_{\rm KT}(t)=\kappa_1 t+(1+\kappa_2)t^2/2+\kappa_3 t^3/6+\kappa_4 t^4/24$ as SD2, but this formula does not appear in Kakizawa--Taniguchi (1994) — that paper is a theoretical study of the Edgeworth↔saddlepoint relation, not a CGF proposal. The $(1+\kappa_2)$ term also makes the approximation asymptotically inconsistent (variance error ~30% at the $\chi^2$ limit), so it was removed.
+
+**Accuracy note (for reference):** SD1 and SD2(WBB) are comparable (mean absolute error ~0.008 over 196 rows), with **PAG(4) the most accurate overall** (MAE ~0.004). PAG fits moments directly to a gamma×polynomial density without going through CGF truncation; saddlepoint methods inherit a structural ceiling because $K_H$ must be approximated by a polynomial in the absence of a closed-form KW CGF.
 
 ### Edgeworth Expansion
 
@@ -287,8 +316,12 @@ python -m pytest tests/test_approximations.py -v
 # Run a single test class
 python -m pytest tests/test_approximations.py::TestKWMoments -v
 
-# Reproduce paper tables
-uv run python examples/reproduce_paper_tables.py
+# Reproduce paper tables (save as raw text)
+uv run python examples/reproduce_paper_tables.py > result/paper_tables_raw.txt
+
+# Convert to LaTeX (sorted by n1, n2, n3, n4; SD2/SDC2(WBB) columns)
+uv run python examples/tables_to_latex.py
+# -> writes result/paper_tables.tex
 ```
 
 ## Dependencies
@@ -306,8 +339,9 @@ uv run python examples/reproduce_paper_tables.py
 5. Lugannani, R. & Rice, S. O. (1980). Saddlepoint approximation for the distribution of the sum of independent random variables. *Advances in Applied Probability*, 12, 475-490.
 6. Easton, G. S. & Ronchetti, E. (1986). General saddlepoint approximations with applications to L statistics. *JASA*, 81, 420-430.
 7. Wang, S. (1992). General saddlepoint approximations in the bootstrap. *Statistics & Probability Letters*, 13, 61-66.
-8. Ha, H.-T. & Provost, S. B. (2007). A viable alternative to resorting to statistical tables. *Communications in Statistics*, 36, 1135-1151.
-9. Hall, P. (1992). *The Bootstrap and Edgeworth Expansion*. Springer.
+8. Wood, A. T. A., Booth, J. G., & Butler, R. W. (1993). Saddlepoint approximations to the CDF of some statistics with nonnormal limit distributions. *JASA*, 88, 680-686. *(basis for SD2 / SDC2)*
+9. Ha, H.-T. & Provost, S. B. (2007). A viable alternative to resorting to statistical tables. *Communications in Statistics*, 36, 1135-1151.
+10. Hall, P. (1992). *The Bootstrap and Edgeworth Expansion*. Springer.
 
 ## License
 
