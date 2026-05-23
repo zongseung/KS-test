@@ -170,10 +170,10 @@ def get_reference_critical_value(sample_sizes: list, alpha: float,
 
 def reproduce_table_4_1():
     """
-    Reproduce Table 4.1: Three groups, small-sample designs, alpha = 0.10 and 0.05
+    Reproduce Table 4.1: Three groups, small-sample designs, alpha = 0.10
     Original paper: (3,3,3) only. Extended with additional small-sample 3-group designs.
     """
-    print_header("Table 4.1: Three groups, small-sample designs, alpha = 0.10 and 0.05")
+    print_header("Table 4.1: Three groups, small-sample designs, alpha = 0.10")
 
     configs = [
         # Paper original
@@ -184,15 +184,15 @@ def reproduce_table_4_1():
         [2, 3, 4], [2, 2, 5], [3, 5, 7],
     ]
 
-    for alpha in [0.10, 0.05]:
+    for alpha in [0.10]:
         print(f"\n--- alpha = {alpha} ---")
 
-        headers = ["Config", "N", "E-Q", "E-P", "SRC", "SD1", "SD2", "SDC1", "SDC2", "ED", "ED-HK", "GC-A", "PAG(4)"]
+        headers = ["Config", "N", "E-Q", "E-P", "SRC", "SD1", "SD2(WBB)", "SDC1", "SDC2(WBB)", "ED", "ED-HK", "GC-A", "PAG(4)"]
         widths = [12, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10]
 
-        print(f"\n{'-'*132}")
+        print(f"\n{'-'*sum(widths)}")
         print_table_row(headers, widths)
-        print(f"{'-'*132}")
+        print(f"{'-'*sum(widths)}")
 
         for sample_sizes in configs:
             N = sum(sample_sizes)
@@ -200,9 +200,9 @@ def reproduce_table_4_1():
             H, ref_alpha, source = get_reference_critical_value(sample_sizes, alpha, n_simulations=10000)
 
             sd1 = approx.tail_probability(H, 'saddlepoint')
-            sd2 = approx.tail_probability(H, 'saddlepoint_sd2')
+            sd2 = approx.tail_probability(H, 'SD2')
             sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
-            sdc2 = approx.tail_probability(H, 'saddlepoint_cc2')
+            sdc2 = approx.tail_probability(H, 'SDC2')
             ed = approx.tail_probability(H, 'edgeworth')
             ed_hk = approx.tail_probability(H, 'edgeworth_hk')
             gc_a = approx.tail_probability(H, 'gram_charlier')
@@ -213,7 +213,7 @@ def reproduce_table_4_1():
             values = [config, N, H, ref_alpha, src_label, sd1, sd2, sdc1, sdc2, ed, ed_hk, gc_a, pag4]
             print_table_row(values, widths)
 
-        print(f"{'-'*132}")
+        print(f"{'-'*sum(widths)}")
         print("  E-Q: Exact (or simulated) upper quantile c_alpha")
         print("  E-P: Corresponding tail probability Pr(H >= c_alpha)")
         print("  SRC: E=Exact, S=Simulation (10,000 iterations)")
@@ -247,11 +247,11 @@ def reproduce_tables_4_2_4_3():
         print(f"\n--- alpha = {alpha} ---\n")
 
         # Paper Tables 4.2-4.3 + ED-HK (Hall/Kolassa comparison)
-        headers = ["n1,n2,n3", "N", "E-Q", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "ED-HK", "GC-A", "PAG(4)"]
+        headers = ["n1,n2,n3", "N", "E-Q", "E-P", "SRC", "CHI", "SD1", "SD2(WBB)", "SDC1", "SDC2(WBB)", "ED", "ED-HK", "GC-A", "PAG(4)"]
         widths = [12, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10]
 
         print_table_row(headers, widths)
-        print("-" * 138)
+        print("-" * sum(widths))
 
         for n in n_values:
             sample_sizes = [n, n, n]
@@ -265,9 +265,9 @@ def reproduce_tables_4_2_4_3():
             # Compute all approximation tail probabilities at the same reference H
             chi = approx.tail_probability(H, 'chi_square')
             sd1 = approx.tail_probability(H, 'saddlepoint')
-            sd2 = approx.tail_probability(H, 'saddlepoint_sd2')
+            sd2 = approx.tail_probability(H, 'SD2')
             sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
-            sdc2 = approx.tail_probability(H, 'saddlepoint_cc2')
+            sdc2 = approx.tail_probability(H, 'SDC2')
             ed = approx.tail_probability(H, 'edgeworth')
             ed_hk = approx.tail_probability(H, 'edgeworth_hk')
             gc_a = approx.tail_probability(H, 'gram_charlier')
@@ -278,12 +278,12 @@ def reproduce_tables_4_2_4_3():
             values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, ed_hk, gc_a, pag4]
             print_table_row(values, widths)
 
-        print("-" * 138)
+        print("-" * sum(widths))
 
         # Mild unbalance
         print(f"\n  [Mild unbalance]\n")
         print_table_row(headers, widths)
-        print("-" * 138)
+        print("-" * sum(widths))
 
         for sample_sizes in mild_unbalanced:
             N = sum(sample_sizes)
@@ -292,9 +292,9 @@ def reproduce_tables_4_2_4_3():
 
             chi = approx.tail_probability(H, 'chi_square')
             sd1 = approx.tail_probability(H, 'saddlepoint')
-            sd2 = approx.tail_probability(H, 'saddlepoint_sd2')
+            sd2 = approx.tail_probability(H, 'SD2')
             sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
-            sdc2 = approx.tail_probability(H, 'saddlepoint_cc2')
+            sdc2 = approx.tail_probability(H, 'SDC2')
             ed = approx.tail_probability(H, 'edgeworth')
             ed_hk = approx.tail_probability(H, 'edgeworth_hk')
             gc_a = approx.tail_probability(H, 'gram_charlier')
@@ -305,12 +305,12 @@ def reproduce_tables_4_2_4_3():
             values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, ed_hk, gc_a, pag4]
             print_table_row(values, widths)
 
-        print("-" * 138)
+        print("-" * sum(widths))
 
         # Severe unbalance
         print(f"\n  [Severe unbalance]\n")
         print_table_row(headers, widths)
-        print("-" * 138)
+        print("-" * sum(widths))
 
         for sample_sizes in severe_unbalanced:
             N = sum(sample_sizes)
@@ -319,9 +319,9 @@ def reproduce_tables_4_2_4_3():
 
             chi = approx.tail_probability(H, 'chi_square')
             sd1 = approx.tail_probability(H, 'saddlepoint')
-            sd2 = approx.tail_probability(H, 'saddlepoint_sd2')
+            sd2 = approx.tail_probability(H, 'SD2')
             sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
-            sdc2 = approx.tail_probability(H, 'saddlepoint_cc2')
+            sdc2 = approx.tail_probability(H, 'SDC2')
             ed = approx.tail_probability(H, 'edgeworth')
             ed_hk = approx.tail_probability(H, 'edgeworth_hk')
             gc_a = approx.tail_probability(H, 'gram_charlier')
@@ -332,7 +332,7 @@ def reproduce_tables_4_2_4_3():
             values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, ed_hk, gc_a, pag4]
             print_table_row(values, widths)
 
-        print("-" * 138)
+        print("-" * sum(widths))
         print("  E-Q: Exact (or simulated) upper quantile c_alpha")
         print("  E-P: Corresponding tail probability Pr(H >= c_alpha)")
         print("  SRC: E=Exact, S=Simulation (10,000 iterations)")
@@ -360,13 +360,13 @@ def reproduce_table_4_4():
     for alpha in [0.10, 0.05]:
         print(f"\n--- alpha = {alpha} ---\n")
 
-        # Table 4.4: CHI, SD1, SD2, SDC1, SDC2, ED, ED-HK, GC-A, PAG(4)
+        # Table 4.4: CHI, SD1, SDC1, ED, ED-HK, GC-A, PAG(4)
         # ED-HK: Hall & Kolassa (1992, 1995) bootstrap-based Edgeworth expansion using asymptotic cumulants
-        headers = ["n1,n2,n3", "N", "E-Q", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "ED-HK", "GC-A", "PAG(4)"]
+        headers = ["n1,n2,n3", "N", "E-Q", "E-P", "SRC", "CHI", "SD1", "SD2(WBB)", "SDC1", "SDC2(WBB)", "ED", "ED-HK", "GC-A", "PAG(4)"]
         widths = [12, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10]
 
         print_table_row(headers, widths)
-        print("-" * 124)
+        print("-" * sum(widths))
 
         for n in n_values:
             sample_sizes = [n, n, n]
@@ -379,9 +379,9 @@ def reproduce_table_4_4():
 
             chi = approx.tail_probability(H, 'chi_square')
             sd1 = approx.tail_probability(H, 'saddlepoint')
-            sd2 = approx.tail_probability(H, 'saddlepoint_sd2')
+            sd2 = approx.tail_probability(H, 'SD2')
             sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
-            sdc2 = approx.tail_probability(H, 'saddlepoint_cc2')
+            sdc2 = approx.tail_probability(H, 'SDC2')
             ed = approx.tail_probability(H, 'edgeworth')
             ed_hk = approx.tail_probability(H, 'edgeworth_hk')
             gc_a = approx.tail_probability(H, 'gram_charlier')
@@ -392,12 +392,12 @@ def reproduce_table_4_4():
             values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, ed_hk, gc_a, pag4]
             print_table_row(values, widths)
 
-        print("-" * 138)
+        print("-" * sum(widths))
 
         # Unbalanced larger 3-group
         print(f"\n  [Unbalanced larger 3-group]\n")
         print_table_row(headers, widths)
-        print("-" * 138)
+        print("-" * sum(widths))
 
         for sample_sizes in unbalanced_configs:
             N = sum(sample_sizes)
@@ -406,9 +406,9 @@ def reproduce_table_4_4():
 
             chi = approx.tail_probability(H, 'chi_square')
             sd1 = approx.tail_probability(H, 'saddlepoint')
-            sd2 = approx.tail_probability(H, 'saddlepoint_sd2')
+            sd2 = approx.tail_probability(H, 'SD2')
             sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
-            sdc2 = approx.tail_probability(H, 'saddlepoint_cc2')
+            sdc2 = approx.tail_probability(H, 'SDC2')
             ed = approx.tail_probability(H, 'edgeworth')
             ed_hk = approx.tail_probability(H, 'edgeworth_hk')
             gc_a = approx.tail_probability(H, 'gram_charlier')
@@ -419,7 +419,7 @@ def reproduce_table_4_4():
             values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, ed_hk, gc_a, pag4]
             print_table_row(values, widths)
 
-        print("-" * 138)
+        print("-" * sum(widths))
         print("  E-Q: Exact (or simulated) upper quantile c_alpha")
         print("  E-P: Corresponding tail probability Pr(H >= c_alpha)")
         print("  SRC: E=Exact, S=Simulation (10,000 iterations)")
@@ -445,21 +445,21 @@ def reproduce_table_4_5():
         print(f"\n--- alpha = {alpha} ---\n")
 
         # ED-HK: Hall & Kolassa (1992, 1995) bootstrap-based Edgeworth expansion using asymptotic cumulants
-        headers = ["Config", "E-Q", "E-P", "SRC", "SD1", "SD2", "SDC1", "SDC2", "CHI", "ED", "ED-HK", "GC-A", "PAG(4)"]
+        headers = ["Config", "E-Q", "E-P", "SRC", "SD1", "SD2(WBB)", "SDC1", "SDC2(WBB)", "CHI", "ED", "ED-HK", "GC-A", "PAG(4)"]
         widths = [14, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10]
 
-        print(f"{'-'*132}")
+        print(f"{'-'*sum(widths)}")
         print_table_row(headers, widths)
-        print(f"{'-'*132}")
+        print(f"{'-'*sum(widths)}")
 
         for sample_sizes in configs:
             approx = KWApproximator(sample_sizes)
             H, ref_alpha, source = get_reference_critical_value(sample_sizes, alpha, n_simulations=10000)
 
             sd1 = approx.tail_probability(H, 'saddlepoint')
-            sd2 = approx.tail_probability(H, 'saddlepoint_sd2')
+            sd2 = approx.tail_probability(H, 'SD2')
             sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
-            sdc2 = approx.tail_probability(H, 'saddlepoint_cc2')
+            sdc2 = approx.tail_probability(H, 'SDC2')
             chi = approx.tail_probability(H, 'chi_square')
             ed = approx.tail_probability(H, 'edgeworth')
             ed_hk = approx.tail_probability(H, 'edgeworth_hk')
@@ -471,7 +471,7 @@ def reproduce_table_4_5():
             values = [config, H, ref_alpha, src_label, sd1, sd2, sdc1, sdc2, chi, ed, ed_hk, gc_a, pag4]
             print_table_row(values, widths)
 
-        print(f"{'-'*132}")
+        print(f"{'-'*sum(widths)}")
         print("  E-Q: Exact (or simulated) upper quantile c_alpha")
         print("  E-P: Corresponding tail probability Pr(H >= c_alpha)")
         print("  SRC: E=Exact, S=Simulation (10,000 iterations)")
@@ -514,13 +514,13 @@ def reproduce_tables_4_6_4_7():
     for alpha in [0.10, 0.05]:
         print(f"\n--- alpha = {alpha} ---\n")
 
-        # Tables 4.6-4.7: CHI, SD1, SD2, SDC1, SDC2, ED, ED-HK, GC-A, PAG(4)
+        # Tables 4.6-4.7: CHI, SD1, SDC1, ED, ED-HK, GC-A, PAG(4)
         # ED-HK: Hall & Kolassa (1992, 1995) bootstrap-based Edgeworth expansion using asymptotic cumulants
-        headers = ["Config", "N", "E-Q", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "ED-HK", "GC-A", "PAG(4)"]
+        headers = ["Config", "N", "E-Q", "E-P", "SRC", "CHI", "SD1", "SD2(WBB)", "SDC1", "SDC2(WBB)", "ED", "ED-HK", "GC-A", "PAG(4)"]
         widths = [14, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10]
 
         print_table_row(headers, widths)
-        print("-" * 132)
+        print("-" * sum(widths))
 
         for sample_sizes in configs:
             N = sum(sample_sizes)
@@ -532,9 +532,9 @@ def reproduce_tables_4_6_4_7():
             # Compute all approximation tail probabilities at the same reference H
             chi = approx.tail_probability(H, 'chi_square')
             sd1 = approx.tail_probability(H, 'saddlepoint')
-            sd2 = approx.tail_probability(H, 'saddlepoint_sd2')
+            sd2 = approx.tail_probability(H, 'SD2')
             sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
-            sdc2 = approx.tail_probability(H, 'saddlepoint_cc2')
+            sdc2 = approx.tail_probability(H, 'SDC2')
             ed = approx.tail_probability(H, 'edgeworth')
             ed_hk = approx.tail_probability(H, 'edgeworth_hk')
             gc_a = approx.tail_probability(H, 'gram_charlier')
@@ -545,7 +545,7 @@ def reproduce_tables_4_6_4_7():
             values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, ed_hk, gc_a, pag4]
             print_table_row(values, widths)
 
-        print("-" * 144)
+        print("-" * sum(widths))
         print("  E-Q: Exact (or simulated) upper quantile c_alpha")
         print("  E-P: Corresponding tail probability Pr(H >= c_alpha)")
         print("  SRC: E=Exact, S=Simulation (10,000 iterations)")
@@ -563,11 +563,11 @@ def generate_random_three_group_designs(n_designs: int = 10):
     """
     print_header(f"Random Three-Group Designs (n={n_designs})")
 
-    headers = ["Config", "N", "E-Q", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "ED-HK", "GC-A", "PAG(4)"]
+    headers = ["Config", "N", "E-Q", "E-P", "SRC", "CHI", "SD1", "SD2(WBB)", "SDC1", "SDC2(WBB)", "ED", "ED-HK", "GC-A", "PAG(4)"]
     widths = [14, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10]
 
     print_table_row(headers, widths)
-    print("-" * 142)
+    print("-" * sum(widths))
 
     for i in range(n_designs):
         n1 = random.randint(2, 10)
@@ -581,9 +581,9 @@ def generate_random_three_group_designs(n_designs: int = 10):
 
         chi = approx.tail_probability(H, 'chi_square')
         sd1 = approx.tail_probability(H, 'saddlepoint')
-        sd2 = approx.tail_probability(H, 'saddlepoint_sd2')
+        sd2 = approx.tail_probability(H, 'SD2')
         sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
-        sdc2 = approx.tail_probability(H, 'saddlepoint_cc2')
+        sdc2 = approx.tail_probability(H, 'SDC2')
         ed = approx.tail_probability(H, 'edgeworth')
         ed_hk = approx.tail_probability(H, 'edgeworth_hk')
         gc_a = approx.tail_probability(H, 'gram_charlier')
@@ -594,7 +594,7 @@ def generate_random_three_group_designs(n_designs: int = 10):
         values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, ed_hk, gc_a, pag4]
         print_table_row(values, widths)
 
-    print("-" * 142)
+    print("-" * sum(widths))
     print("  E-Q: Exact (or simulated) upper quantile c_alpha")
     print("  E-P: Corresponding tail probability Pr(H >= c_alpha)")
     print("  SRC: E=Exact, S=Simulation (10,000 iterations)")
@@ -612,11 +612,11 @@ def generate_random_four_group_designs(n_designs: int = 10):
     """
     print_header(f"Random Four-Group Designs (n={n_designs})")
 
-    headers = ["Config", "N", "E-Q", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "ED-HK", "GC-A", "PAG(4)"]
+    headers = ["Config", "N", "E-Q", "E-P", "SRC", "CHI", "SD1", "SD2(WBB)", "SDC1", "SDC2(WBB)", "ED", "ED-HK", "GC-A", "PAG(4)"]
     widths = [16, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10]
 
     print_table_row(headers, widths)
-    print("-" * 144)
+    print("-" * sum(widths))
 
     for i in range(n_designs):
         n1 = random.randint(2, 8)
@@ -631,9 +631,9 @@ def generate_random_four_group_designs(n_designs: int = 10):
 
         chi = approx.tail_probability(H, 'chi_square')
         sd1 = approx.tail_probability(H, 'saddlepoint')
-        sd2 = approx.tail_probability(H, 'saddlepoint_sd2')
+        sd2 = approx.tail_probability(H, 'SD2')
         sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
-        sdc2 = approx.tail_probability(H, 'saddlepoint_cc2')
+        sdc2 = approx.tail_probability(H, 'SDC2')
         ed = approx.tail_probability(H, 'edgeworth')
         ed_hk = approx.tail_probability(H, 'edgeworth_hk')
         gc_a = approx.tail_probability(H, 'gram_charlier')
@@ -644,7 +644,7 @@ def generate_random_four_group_designs(n_designs: int = 10):
         values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, ed_hk, gc_a, pag4]
         print_table_row(values, widths)
 
-    print("-" * 144)
+    print("-" * sum(widths))
     print("  E-Q: Exact (or simulated) upper quantile c_alpha")
     print("  E-P: Corresponding tail probability Pr(H >= c_alpha)")
     print("  SRC: E=Exact, S=Simulation (10,000 iterations)")
@@ -664,11 +664,11 @@ def generate_random_k_group_designs(k: int = 5, n_designs: int = 10):
     """
     print_header(f"Random {k}-Group Designs (n={n_designs})")
 
-    headers = ["Config", "N", "E-Q", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "ED-HK", "GC-A", "PAG(4)"]
+    headers = ["Config", "N", "E-Q", "E-P", "SRC", "CHI", "SD1", "SD2(WBB)", "SDC1", "SDC2(WBB)", "ED", "ED-HK", "GC-A", "PAG(4)"]
     widths = [20, 6, 10, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10]
 
     print_table_row(headers, widths)
-    print("-" * 148)
+    print("-" * sum(widths))
 
     for i in range(n_designs):
         sample_sizes = [random.randint(2, 6) for _ in range(k)]
@@ -679,9 +679,9 @@ def generate_random_k_group_designs(k: int = 5, n_designs: int = 10):
 
         chi = approx.tail_probability(H, 'chi_square')
         sd1 = approx.tail_probability(H, 'saddlepoint')
-        sd2 = approx.tail_probability(H, 'saddlepoint_sd2')
+        sd2 = approx.tail_probability(H, 'SD2')
         sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
-        sdc2 = approx.tail_probability(H, 'saddlepoint_cc2')
+        sdc2 = approx.tail_probability(H, 'SDC2')
         ed = approx.tail_probability(H, 'edgeworth')
         ed_hk = approx.tail_probability(H, 'edgeworth_hk')
         gc_a = approx.tail_probability(H, 'gram_charlier')
@@ -692,7 +692,7 @@ def generate_random_k_group_designs(k: int = 5, n_designs: int = 10):
         values = [config, N, H, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, ed_hk, gc_a, pag4]
         print_table_row(values, widths)
 
-    print("-" * 148)
+    print("-" * sum(widths))
     print("  E-Q: Exact (or simulated) upper quantile c_alpha")
     print("  E-P: Corresponding tail probability Pr(H >= c_alpha)")
     print("  SRC: E=Exact, S=Simulation (10,000 iterations)")
@@ -753,11 +753,11 @@ def comprehensive_random_study(n_per_category: int = 5):
     # Now compute results for all
     print_header("Results for All Random Designs (alpha = 0.10)")
 
-    headers = ["Category", "Config", "N", "E-P", "SRC", "CHI", "SD1", "SD2", "SDC1", "SDC2", "ED", "ED-HK", "GC-A", "PAG(4)"]
+    headers = ["Category", "Config", "N", "E-P", "SRC", "CHI", "SD1", "SD2(WBB)", "SDC1", "SDC2(WBB)", "ED", "ED-HK", "GC-A", "PAG(4)"]
     widths = [10, 18, 6, 10, 6, 10, 10, 10, 10, 10, 10, 10, 10, 10]
 
     print_table_row(headers, widths)
-    print("-" * 146)
+    print("-" * sum(widths))
 
     for category, sample_sizes in all_results:
         N = sum(sample_sizes)
@@ -767,9 +767,9 @@ def comprehensive_random_study(n_per_category: int = 5):
 
         chi = approx.tail_probability(H, 'chi_square')
         sd1 = approx.tail_probability(H, 'saddlepoint')
-        sd2 = approx.tail_probability(H, 'saddlepoint_sd2')
+        sd2 = approx.tail_probability(H, 'SD2')
         sdc1 = approx.tail_probability(H, 'saddlepoint_cc')
-        sdc2 = approx.tail_probability(H, 'saddlepoint_cc2')
+        sdc2 = approx.tail_probability(H, 'SDC2')
         ed = approx.tail_probability(H, 'edgeworth')
         ed_hk = approx.tail_probability(H, 'edgeworth_hk')
         gc_a = approx.tail_probability(H, 'gram_charlier')
@@ -781,7 +781,7 @@ def comprehensive_random_study(n_per_category: int = 5):
         values = [category, config, N, ref_alpha, src_label, chi, sd1, sd2, sdc1, sdc2, ed, ed_hk, gc_a, pag4]
         print_table_row(values, widths)
 
-    print("-" * 146)
+    print("-" * sum(widths))
     print("  E-Q: Exact (or simulated) upper quantile c_alpha")
     print("  E-P: Corresponding tail probability Pr(H >= c_alpha)")
     print("  SRC: E=Exact, S=Simulation (10,000 iterations)")

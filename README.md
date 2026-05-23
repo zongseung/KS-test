@@ -31,7 +31,7 @@ KS-test/
 |   |-- __init__.py               #   패키지 초기화 (v0.3.0)
 |   |-- kruskal_wallis.py         #   H 통계량 계산
 |   |-- moments.py                #   모멘트/큐뮬런트 (exact/simulation)
-|   |-- saddlepoint.py            #   새들포인트 근사 (ER1, ER2, KT + L-R)
+|   |-- saddlepoint.py            #   새들포인트 근사 (ER1, ER2 + L-R)
 |   |-- edgeworth.py              #   Edgeworth 전개 (chi-sq 기반 Laguerre)
 |   |-- gram_charlier.py          #   Gram-Charlier Type A (Hermite)
 |   |-- pam.py                    #   PAG(d) 다항식 조정 감마 근사
@@ -43,7 +43,7 @@ KS-test/
 |   +-- reproduce_paper_tables.py #   논문 Table 4.1~4.7 재현 + 확장
 |
 |-- tests/
-|   +-- test_approximations.py    #   36개 테스트 케이스
+|   +-- test_approximations.py    #   37개 테스트 케이스
 |
 |
 |-- README.md
@@ -85,7 +85,7 @@ KS-test/
      +-----------+ +-----------+         +-----------+ +-----------+
      |Saddlepoint| |Edgeworth  |         |Gram-      | |   PAG(d)  |
      |  ER1/ER2  | |(chi-sq +  |         |Charlier   | | (gamma x  |
-     |    KT     | | Laguerre) |         |Type A     | | polynomial|
+     |           | | Laguerre) |         |Type A     | | polynomial|
      +-----------+ +-----------+         |(Hermite)  | |  d=4,6)   |
      |  +- CC    |                       +-----------+ +-----------+
      |  variants |
@@ -139,9 +139,7 @@ for method, p in results.items():
 | 논문     | 코드 method    | CGF                 | 비고            |
 +----------+----------------+---------------------+-----------------+
 | SD1      | 'ER1'          | Easton-Ronchetti 1  | Saddlepoint     |
-| SD2(KT)  | 'KT'           | Kakizawa-Taniguchi  | Saddlepoint     |
 | SDC1     | 'ER1_cc'       | ER1 + CC            | 연속성 보정     |
-| SDC2(KT) | 'KT_cc'        | KT + CC             | 연속성 보정     |
 | CHI      | 'chi_square'   | -                   | Baseline        |
 | ED       | 'edgeworth'    | -                   | Laguerre 기반   |
 | GC-A     | 'gram_charlier'| -                   | Hermite 기반    |
@@ -152,7 +150,7 @@ for method, p in results.items():
 +----------+----------------+---------------------+-----------------+
 ```
 
-> **참고:** 논문 테이블의 SD2/SDC2 컬럼은 Wang damped CGF에서 **Kakizawa-Taniguchi(KT)** CGF로 교체되었습니다 (헤더 표기 `SD2(KT)` / `SDC2(KT)`). Wang은 N≈15 부근에서 K''(t̂)가 0에 가까워져 Lugannani-Rice 보정항이 폭주하는 수치 불안정이 있어, 다항식 CGF로 안정적인 KT로 대체했습니다. Wang CGF 구현은 삭제하지 않고 코드 주석으로 보존했지만, 현재 실행 경로에서는 비활성화되어 있습니다.
+> **참고:** Wang CGF 구현은 삭제하지 않고 코드 주석으로 보존했지만, 현재 실행 경로에서는 비활성화되어 있습니다. Kakizawa--Taniguchi(KT) 계열은 H-scale에서 ER1과 동일한 4-큐뮬런트 다항식으로 귀착되므로 논문 테이블의 독립 컬럼에서는 제외했습니다.
 
 ### 큐뮬런트 (Cumulants) -- Exact Finite-Sample
 
@@ -191,8 +189,8 @@ $$K_H(t) \approx \kappa_1 t + \frac{\kappa_2}{2}t^2 + \left(\frac{\kappa_3}{6}t^
 
 여기서 $\eta_p(t) = \exp(-\kappa_2 p^2 t^2 / 2)$, $p$는 $K''_W(t;p) \geq 0$을 보장하는 최소 damping parameter.
 
-**K-T (Kakizawa-Taniguchi):**
-$$K_H(t) \approx \kappa_1 t + \frac{(1+\kappa_2)}{2}t^2 + \frac{\kappa_3}{6}t^3 + \frac{\kappa_4}{24}t^4$$
+**KT 관련 메모:**
+Kakizawa--Taniguchi 논문은 정규화된 통계량의 saddlepoint--Edgeworth 고차 관계를 다루며, Kruskal--Wallis용 별도 CGF를 제안하지 않습니다. H-scale에 맞게 옮기면 ER1과 동일해지므로 표에서는 별도 방법으로 보고하지 않습니다.
 
 ### 연속성 보정 (Continuity Correction)
 
@@ -242,12 +240,10 @@ from kw_approx import SaddlepointApproximation, ExactDistribution, MonteCarloSim
 
 sample_sizes = [3, 3, 3]
 
-# Saddlepoint with different CGF methods
+# Saddlepoint with ER1 CGF
 sp_er1 = SaddlepointApproximation(sample_sizes, cgf_method='ER1')
-sp_kt = SaddlepointApproximation(sample_sizes, cgf_method='KT')
 
 print(f"ER1: {sp_er1.tail_probability_lr(4.62):.6f}")
-print(f"KT:  {sp_kt.tail_probability_lr(4.62):.6f}")
 
 # Exact (소표본)
 exact = ExactDistribution(sample_sizes)
@@ -291,7 +287,7 @@ approx = KWApproximator([5, 5, 5])
 print(f"H statistic: {H:.4f}")
 print(f"SciPy p-value: {result.pvalue:.4f}")
 
-for method in ['exact', 'chi_square', 'ER1', 'KT', 'edgeworth', 'gram_charlier', 'pam']:
+for method in ['exact', 'chi_square', 'ER1', 'edgeworth', 'gram_charlier', 'pam']:
     p = approx.tail_probability(H, method)
     print(f"{method}: {p:.4f}")
 ```
@@ -304,7 +300,7 @@ for method in ['exact', 'chi_square', 'ER1', 'KT', 'edgeworth', 'gram_charlier',
 +---------------+----------+---------------+---------------------------+
 | N <= 15       | k <= 3   | exact         | 정확 분포 계산 가능       |
 | N <= 13       | k = 4    | exact         | 정확 분포 계산 가능       |
-| 15 < N < 100  | any      | ER1, KT       | 새들포인트 + L-R          |
+| 15 < N < 100  | any      | ER1           | 새들포인트 + L-R          |
 | N >= 100      | any      | chi_square    | 점근 근사 충분            |
 | any           | any      | simulation    | MC 참조값 (느림)          |
 +---------------+----------+---------------+---------------------------+
@@ -313,7 +309,7 @@ for method in ['exact', 'chi_square', 'ER1', 'KT', 'edgeworth', 'gram_charlier',
 ## 테스트
 
 ```bash
-# 전체 테스트 실행 (36개)
+# 전체 테스트 실행 (37개)
 python -m pytest tests/test_approximations.py -v
 
 # 단일 테스트 클래스
