@@ -31,8 +31,8 @@ class SaddlepointApproximation:
         Sample sizes for each group [n1, n2, ..., nk]
     cgf_method : str
         Method for cumulant generating function approximation.
-        Options: 'exact', 'ER1', 'ER2', 'KT'
-        Wang code is preserved below but currently commented out.
+        Options: 'exact', 'ER1', 'ER2'
+        Wang/KT code is preserved below but currently commented out.
         Default: 'ER1' (Easton-Ronchetti first approximation)
     
     Attributes
@@ -188,14 +188,6 @@ class SaddlepointApproximation:
         #             kappa[2] * t**2 / 2 +
         #             (kappa[3] * t**3 / 6 + kappa[4] * t**4 / 24) * eta)
         
-        elif self.cgf_method == 'KT':
-            # Kakizawa-Taniguchi (1994) correction
-            # K_H(t) ≈ kappa_1*t + ((1 + kappa_2)*t^2)/2 + (kappa_3*t^3)/6 + (kappa_4*t^4)/24
-            return (kappa[1] * t + 
-                    (1 + kappa[2]) * t**2 / 2 + 
-                    kappa[3] * t**3 / 6 + 
-                    kappa[4] * t**4 / 24)
-        
         else:
             # Default to ER1
             return (kappa[1] * t + 
@@ -252,14 +244,6 @@ class SaddlepointApproximation:
         #     fp = kappa[3] * t**2 / 2 + kappa[4] * t**3 / 6
         #     return kappa[1] + kappa[2] * t + fp * eta + f * d_eta
 
-        elif self.cgf_method == 'KT':
-            # K_KT(t) = κ₁t + ((1+κ₂)/2)t² + (κ₃/6)t³ + (κ₄/24)t⁴
-            # K'_KT(t) = κ₁ + (1+κ₂)t + (κ₃/2)t² + (κ₄/6)t³
-            return (kappa[1] +
-                    (1 + kappa[2]) * t +
-                    kappa[3] * t**2 / 2 +
-                    kappa[4] * t**3 / 6)
-
         else:
             return (kappa[1] +
                     kappa[2] * t +
@@ -284,10 +268,6 @@ class SaddlepointApproximation:
         
         if self.cgf_method in ['ER1', 'exact']:
             return kappa[2] + kappa[3] * t + kappa[4] * t**2 / 2
-        elif self.cgf_method == 'KT':
-            # K_KT(t) = κ₁t + ((1+κ₂)/2)t² + (κ₃/6)t³ + (κ₄/24)t⁴
-            # K''_KT(t) = (1+κ₂) + κ₃t + (κ₄/2)t²
-            return (1 + kappa[2]) + kappa[3] * t + kappa[4] * t**2 / 2
         # elif self.cgf_method == 'Wang':
         #     p = self._get_wang_p()
         #     return self._wang_second_derivative(t, p)
@@ -301,7 +281,7 @@ class SaddlepointApproximation:
         """Third derivative of CGF: K'''_H(t)."""
         kappa = self._kappa
 
-        if self.cgf_method in ['ER1', 'KT', 'exact']:
+        if self.cgf_method in ['ER1', 'exact']:
             return kappa[3] + kappa[4] * t
         else:
             # Numerical derivative for ER2 and other methods
@@ -444,64 +424,80 @@ class SaddlepointApproximation:
             # Paper text says v + 0.5 but standard CC and paper tables
             # both confirm v - 0.5 is correct.
             v = v - 0.5
-        
+
         mean = self.moments.get_mean()
-        
+
         t_hat = self.find_saddlepoint(v)
-        
+
         # Special case: v = mean (t_hat = 0)
         if np.abs(t_hat) < 1e-10:
             K2_0 = self.cgf_derivative2(0)
             K3_0 = self.cgf_derivative3(0)
-            
+
             term = (K3_0 * K2_0**(-3/2) / 6 - K2_0**(-1/2) / 2) / np.sqrt(2 * np.pi)
             return 0.5 - term
-        
+
         K_t = self.cumulant_generating_function(t_hat)
         K2_t = self.cgf_derivative2(t_hat)
-        
+
         if K2_t <= 0:
             # Fallback to chi-square
             from .kruskal_wallis import KruskalWallisStatistic
             kw = KruskalWallisStatistic(list(self.sample_sizes))
             return kw.chi_square_approximation(v)
-        
+
         # Compute w_hat and u_hat
         arg_w = 2 * (t_hat * v - K_t)
         if arg_w < 0:
             # Can happen due to numerical issues
             arg_w = max(arg_w, 0)
-        
+
         w_hat = np.sign(t_hat) * np.sqrt(arg_w)
         u_hat = t_hat * np.sqrt(K2_t)
-        
+
         # Lugannani-Rice formula
         Phi_w = stats.norm.cdf(w_hat)
         phi_w = stats.norm.pdf(w_hat)
-        
+
         if np.abs(u_hat) < 1e-10 or np.abs(w_hat) < 1e-10:
             return 0.5
-        
+
         prob = 1 - Phi_w + phi_w * (1/u_hat - 1/w_hat)
-        
+
         return np.clip(prob, 0, 1)
     
-    def tail_probability_gamma_based(self, v: float) -> float:
+    def tail_probability_gamma_based(self, v: float,
+                                     continuity_correction: bool = False) -> float:
         """
-        Gamma-based saddlepoint approximation (Wood et al., 1993).
-        
-        Uses gamma distribution instead of normal for the base approximation.
-        
+        Gamma-based saddlepoint approximation (Wood, Booth & Butler, 1993).
+
+        General non-normal-base Lugannani-Rice approximation: the H-scale
+        saddlepoint is mapped onto a Gamma(alpha, beta) reference (matched to
+        the first two moments of H) by CGF-exponent matching:
+            K_G(t_xi) - t_xi * xi  =  K_H(t_hat) - t_hat * v,
+        with t_xi the gamma-scale saddlepoint solving K_G'(t_xi) = xi. With
+        u_xi = t_hat * sqrt(K_H''(t_hat) / K_G''(t_xi)) the tail is
+            P(H >= v) ~ 1 - G(xi) + g(xi) * (1/u_xi - 1/t_xi).
+        Reduces to the standard normal-base LR when the base is normal.
+
         Parameters
         ----------
         v : float
             Critical value
-            
+        continuity_correction : bool
+            Whether to apply continuity correction (shifts v by -0.5 for
+            upper-tail P(H >= v) of discrete distributions; same convention
+            as tail_probability_lr).
+
         Returns
         -------
         float
             Approximate P(H >= v)
         """
+        if continuity_correction:
+            # See note in tail_probability_lr(): upper-tail discrete CC uses v - 0.5.
+            v = v - 0.5
+
         # Get gamma parameters matched to first two moments
         alpha, beta = self.moments.get_gamma_params()
         
@@ -600,7 +596,7 @@ class SaddlepointApproximation:
         if method == 'LR':
             return 1 - self.tail_probability_lr(x, continuity_correction)
         elif method == 'gamma':
-            return 1 - self.tail_probability_gamma_based(x)
+            return 1 - self.tail_probability_gamma_based(x, continuity_correction)
         else:
             raise ValueError(f"Unknown method: {method}")
     
@@ -629,7 +625,7 @@ class SaddlepointApproximation:
             if method == 'LR':
                 return self.tail_probability_lr(c, continuity_correction) - alpha
             else:
-                return self.tail_probability_gamma_based(c) - alpha
+                return self.tail_probability_gamma_based(c, continuity_correction) - alpha
         
         # Search for critical value
         # H is non-negative, and critical values are typically in range [0, 20]

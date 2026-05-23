@@ -7,8 +7,10 @@ Kruskal-Wallis statistic as described in:
 Murakami, H., Lee, J.-S. and Ha, H.-T. "Higher Order Asymptotic Approximations
 of Kruskal-Wallis Statistics Based on Skewness and Kurtosis"
 
-CGF methods: ER1, ER2, K-T (all with Lugannani-Rice tail probability)
-Wang support is preserved in comments but currently disabled.
+Saddlepoint methods: SD1 = ER1 CGF + Lugannani-Rice; SD2 = gamma-based
+saddlepoint (Wood, Booth & Butler 1993). Continuity-corrected variants
+SDC1/SDC2. ER2 CGF is also available. Wang/KT CGFs are preserved in
+comments but disabled (Wang: unstable near N~15; KT: no published source).
 All methods use exact finite-sample cumulants (Section 4 of the paper).
 
 References:

@@ -2,7 +2,7 @@
 Unified Approximator Interface for Kruskal-Wallis Statistics
 
 Provides a single interface to access CGF-based saddlepoint approximation
-methods (ER1, ER2, K-T) with Lugannani-Rice tail probability.
+methods (ER1, ER2) with Lugannani-Rice tail probability.
 
 References:
 - Murakami & Ha: Higher Order Asymptotic Approximations of Kruskal-Wallis Statistics
@@ -27,7 +27,7 @@ class KWApproximator:
     """
     Unified interface for Kruskal-Wallis saddlepoint approximation methods.
 
-    Supports CGF approximations (ER1, ER2, K-T) with
+    Supports CGF approximations (ER1, ER2) with
     Lugannani-Rice tail probability, plus chi-square baseline and
     exact/simulation references.
 
@@ -53,23 +53,24 @@ class KWApproximator:
         'ER1',
         'ER2',
         # 'Wang',
-        'KT',
     ]
 
     # Aliases for convenience.
-    # Paper Section 4.1: SD1=K_ER1+LR, SD2=K_W(Wang)+LR
-    # SDC1=SD1+CC, SDC2=SD2+CC
-    # Wang aliases are preserved here but commented out while Wang is disabled.
+    # Paper Section 4.2: SD1 = K_ER1 + Lugannani-Rice;
+    #                    SD2 = gamma-based saddlepoint (Wood, Booth & Butler 1993).
+    # SDC1 = SD1 + continuity correction; SDC2 = SD2 + continuity correction.
+    # (Wang was the original SD2 CGF but is numerically unstable near N~15;
+    #  the KT "(1+kappa_2)" CGF had no source and was removed.)
     METHOD_ALIASES = {
         'saddlepoint': 'ER1',
-        # 'saddlepoint_sd2': 'Wang',
+        'saddlepoint_sd2': 'gamma',
         'saddlepoint_cc': 'ER1_cc',
-        # 'saddlepoint_cc2': 'Wang_cc',
+        'saddlepoint_cc2': 'gamma_cc',
         # Paper table notation
         'SD1': 'ER1',
-        # 'SD2': 'Wang',
+        'SD2': 'gamma',
         'SDC1': 'ER1_cc',
-        # 'SDC2': 'Wang_cc',
+        'SDC2': 'gamma_cc',
     }
 
     AVAILABLE_METHODS = [
@@ -77,11 +78,11 @@ class KWApproximator:
         'ER1',          # Easton-Ronchetti 1st CGF + Lugannani-Rice
         'ER2',          # Easton-Ronchetti 2nd CGF + Lugannani-Rice
         # 'Wang',       # Wang damped CGF + Lugannani-Rice
-        'KT',           # Kakizawa-Taniguchi CGF + Lugannani-Rice
         'ER1_cc',       # ER1 with continuity correction
         'ER2_cc',       # ER2 with continuity correction
         # 'Wang_cc',    # Wang with continuity correction
-        'KT_cc',        # KT with continuity correction
+        'gamma',        # Gamma-based saddlepoint (Wood-Booth-Butler 1993) = SD2
+        'gamma_cc',     # Gamma-based saddlepoint + continuity correction = SDC2
         'edgeworth',    # Edgeworth expansion approximation
         'edgeworth_hk', # Hall/Kolassa Edgeworth with asymptotic cumulants (ED-HK)
         'gram_charlier', # Gram-Charlier Type A series
@@ -126,6 +127,13 @@ class KWApproximator:
         if cgf_name in self.CGF_METHODS:
             self._methods[method] = SaddlepointApproximation(
                 self.sample_sizes, cgf_method=cgf_name
+            )
+        elif cgf_name == 'gamma':
+            # SD2/SDC2: gamma-based (WBB 1993) saddlepoint. The H-scale CGF
+            # is the Easton-Ronchetti ER1 polynomial; the gamma is the
+            # non-normal reference base for the Lugannani-Rice mapping.
+            self._methods[method] = SaddlepointApproximation(
+                self.sample_sizes, cgf_method='ER1'
             )
         elif method == 'edgeworth_hk':
             self._methods[method] = EdgeworthHallKolassa(self.sample_sizes)
@@ -182,6 +190,10 @@ class KWApproximator:
         if cgf_name in self.CGF_METHODS:
             sp = self._get_method(method)
             return sp.tail_probability_lr(h, continuity_correction=cc)
+
+        elif cgf_name == 'gamma':
+            sp = self._get_method(method)
+            return sp.tail_probability_gamma_based(h, continuity_correction=cc)
 
         elif method == 'edgeworth_hk':
             ed_hk = self._get_method(method)
@@ -288,6 +300,10 @@ class KWApproximator:
         if cgf_name in self.CGF_METHODS:
             sp = self._get_method(method)
             return sp.critical_value(alpha, continuity_correction=cc)
+
+        elif cgf_name == 'gamma':
+            sp = self._get_method(method)
+            return sp.critical_value(alpha, method='gamma', continuity_correction=cc)
 
         elif method == 'exact':
             exact = self._get_method(method)

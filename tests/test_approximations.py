@@ -133,6 +133,14 @@ class TestSaddlepointApproximation:
         # They should be different
         assert p_no_cc != p_cc
 
+    def test_cgf_origin_derivatives_match_h_cumulants(self):
+        """Test that H-scale polynomial CGFs have the right mean and variance."""
+        for method in ['ER1', 'ER2']:
+            sp = SaddlepointApproximation([3, 3, 3], cgf_method=method)
+
+            assert np.isclose(sp.cgf_derivative1(0.0), sp.moments.get_mean())
+            assert np.isclose(sp.cgf_derivative2(0.0), sp.moments.get_variance())
+
 
 class TestPolynomialAdjustedGamma:
     """Test PAM approximation."""
@@ -355,10 +363,10 @@ class TestKWApproximator:
         h = 4.0
 
         for method in ['chi_square', 'saddlepoint',
-                       # 'saddlepoint_sd2',
+                       'saddlepoint_sd2',   # SD2 = gamma-based saddlepoint (WBB 1993)
                        'saddlepoint_cc',
-                       # 'saddlepoint_cc2',
-                       'KT', 'KT_cc',
+                       'saddlepoint_cc2',   # SDC2 = SD2 + continuity correction
+                       'SD2', 'SDC2',
                        'pam', 'pam6', 'gram_charlier', 'edgeworth', 'exact']:
             try:
                 p = approx.tail_probability(h, method)
@@ -371,8 +379,8 @@ class TestKWApproximator:
         approx = KWApproximator([3, 3, 3])
         results = approx.compare_methods(4.62)
         
-        # Should have results for default CGF methods plus references.
-        assert len(results) >= 5
+        # Should have results for chi-square, active CGF methods, and references.
+        assert len(results) >= 4
         
         # All values should be probabilities
         for method, p in results.items():

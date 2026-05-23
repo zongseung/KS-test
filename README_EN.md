@@ -31,7 +31,7 @@ KS-test/
 |   |-- __init__.py               #   Package init (v0.3.0)
 |   |-- kruskal_wallis.py         #   H statistic computation
 |   |-- moments.py                #   Moments/cumulants (exact/simulation)
-|   |-- saddlepoint.py            #   Saddlepoint approx (ER1, ER2, KT + L-R)
+|   |-- saddlepoint.py            #   Saddlepoint approx (ER1, ER2 + L-R)
 |   |-- edgeworth.py              #   Edgeworth expansion (chi-sq + Laguerre)
 |   |-- gram_charlier.py          #   Gram-Charlier Type A (Hermite)
 |   |-- pam.py                    #   PAG(d) polynomially adjusted gamma
@@ -43,7 +43,7 @@ KS-test/
 |   +-- reproduce_paper_tables.py #   Reproduce paper Tables 4.1-4.7 + extensions
 |
 |-- tests/
-|   +-- test_approximations.py    #   36 test cases
+|   +-- test_approximations.py    #   37 test cases
 |
 |
 |-- README.md                     # Korean documentation
@@ -85,7 +85,7 @@ KS-test/
      +-----------+ +-----------+         +-----------+ +-----------+
      |Saddlepoint| |Edgeworth  |         |Gram-      | |   PAG(d)  |
      |  ER1/ER2  | |(chi-sq +  |         |Charlier   | | (gamma x  |
-     |    KT     | | Laguerre) |         |Type A     | | polynomial|
+     |           | | Laguerre) |         |Type A     | | polynomial|
      +-----------+ +-----------+         |(Hermite)  | |  d=4,6)   |
      |  +- CC    |                       +-----------+ +-----------+
      |  variants |
@@ -139,9 +139,7 @@ for method, p in results.items():
 | Paper    | Code method    | CGF                 | Note            |
 +----------+----------------+---------------------+-----------------+
 | SD1      | 'ER1'          | Easton-Ronchetti 1  | Saddlepoint     |
-| SD2(KT)  | 'KT'           | Kakizawa-Taniguchi  | Saddlepoint     |
 | SDC1     | 'ER1_cc'       | ER1 + CC            | Cont. corrected |
-| SDC2(KT) | 'KT_cc'        | KT + CC             | Cont. corrected |
 | CHI      | 'chi_square'   | -                   | Baseline        |
 | ED       | 'edgeworth'    | -                   | Laguerre-based  |
 | GC-A     | 'gram_charlier'| -                   | Hermite-based   |
@@ -152,7 +150,7 @@ for method, p in results.items():
 +----------+----------------+---------------------+-----------------+
 ```
 
-> **Note:** The SD2/SDC2 columns in the paper tables were switched from the Wang damped CGF to the **Kakizawa-Taniguchi (KT)** CGF (headed `SD2(KT)` / `SDC2(KT)`). Near N≈15 the Wang CGF makes K''(t̂) collapse toward 0, blowing up the Lugannani-Rice correction term; KT is a polynomial CGF and stays numerically stable. The Wang CGF implementation was preserved in comments rather than deleted, but it is currently disabled in the execution path.
+> **Note:** The Wang CGF implementation was preserved in comments rather than deleted, but it is currently disabled in the execution path. The Kakizawa--Taniguchi (KT) route reduces to the same four-cumulant polynomial as ER1 on the H scale, so it is not reported as a separate table column.
 
 ### Cumulants -- Exact Finite-Sample
 
@@ -191,8 +189,8 @@ $$K_H(t) \approx \kappa_1 t + \frac{\kappa_2}{2}t^2 + \left(\frac{\kappa_3}{6}t^
 
 where $\eta_p(t) = \exp(-\kappa_2 p^2 t^2 / 2)$, and $p$ is the minimum damping parameter ensuring $K''_W(t;p) \geq 0$.
 
-**K-T (Kakizawa-Taniguchi):**
-$$K_H(t) \approx \kappa_1 t + \frac{(1+\kappa_2)}{2}t^2 + \frac{\kappa_3}{6}t^3 + \frac{\kappa_4}{24}t^4$$
+**KT note:**
+The Kakizawa--Taniguchi paper studies higher-order saddlepoint--Edgeworth relations for normalized statistics and does not introduce a separate Kruskal-Wallis CGF. On the H scale it reduces to ER1, so it is not reported as a distinct method.
 
 ### Edgeworth Expansion
 
@@ -238,12 +236,10 @@ from kw_approx import SaddlepointApproximation, ExactDistribution, MonteCarloSim
 
 sample_sizes = [3, 3, 3]
 
-# Saddlepoint with different CGF methods
+# Saddlepoint with ER1 CGF
 sp_er1 = SaddlepointApproximation(sample_sizes, cgf_method='ER1')
-sp_kt = SaddlepointApproximation(sample_sizes, cgf_method='KT')
 
 print(f"ER1: {sp_er1.tail_probability_lr(4.62):.6f}")
-print(f"KT:  {sp_kt.tail_probability_lr(4.62):.6f}")
 
 # Exact (small samples only)
 exact = ExactDistribution(sample_sizes)
@@ -276,7 +272,7 @@ for alpha in [0.10, 0.05, 0.01]:
 +---------------+----------+---------------+---------------------------+
 | N <= 15       | k <= 3   | exact         | Exact distribution        |
 | N <= 13       | k = 4    | exact         | Exact distribution        |
-| 15 < N < 100  | any      | ER1, KT       | Saddlepoint + L-R         |
+| 15 < N < 100  | any      | ER1           | Saddlepoint + L-R         |
 | N >= 100      | any      | chi_square    | Asymptotic sufficient     |
 | any           | any      | simulation    | MC reference (slow)       |
 +---------------+----------+---------------+---------------------------+
@@ -285,7 +281,7 @@ for alpha in [0.10, 0.05, 0.01]:
 ## Testing
 
 ```bash
-# Run all tests (36 cases)
+# Run all tests (37 cases)
 python -m pytest tests/test_approximations.py -v
 
 # Run a single test class
