@@ -31,17 +31,22 @@ KS-test/
 |   |-- __init__.py               #   패키지 초기화 (v0.3.0)
 |   |-- kruskal_wallis.py         #   H 통계량 계산
 |   |-- moments.py                #   모멘트/큐뮬런트 (exact/simulation)
+|   |-- cumulants_closed_form.py  #   k3/k4 닫힌형 조합식 (Thm 3.12, 열거 불필요)
 |   |-- saddlepoint.py            #   새들포인트 근사 (ER1/ER2 + L-R, WBB gamma-base = SD2)
 |   |-- edgeworth.py              #   Edgeworth 전개 (chi-sq 기반 Laguerre)
 |   |-- gram_charlier.py          #   Gram-Charlier Type A (Hermite)
-|   |-- pam.py                    #   PAG(d) 다항식 조정 감마 근사
+|   |-- pam.py                    #   PAG(d) 다항식 조정 감마 근사 (임의 차수)
 |   |-- exact.py                  #   정확 분포 (재귀 열거, 소표본)
 |   |-- simulation.py             #   Monte Carlo 시뮬레이션
 |   +-- approximator.py           #   통합 인터페이스 (KWApproximator)
 |
 |-- examples/
-|   |-- reproduce_paper_tables.py #   논문 Table 4.1~4.7 재현 + 확장
-|   +-- tables_to_latex.py        #   raw 출력 -> LaTeX (n1,n2,n3,n4 오름차순)
+|   |-- reproduce_paper_tables.py       # 논문 Table 4.1~4.7 재현 + 확장
+|   |-- tables_to_latex.py              # raw 출력 -> LaTeX (n1,n2,n3,n4 오름차순)
+|   |-- verify_cumulants_closed_form.py # 닫힌형 k3/k4 <-> Table 2 <-> 열거 3중 대조 + 그림
+|   |-- verify_cumulants_exact_identity.py # 유리수 열거로 닫힌형이 '항등'임을 증명 (Δ=0)
+|   |-- plot_k3_k4_axes.py              # k3(x) vs k4(y) 산점도
+|   +-- plot_gamma1_gamma2_axes.py      # gamma1(x) vs gamma2(y) 산점도
 |
 |-- tests/
 |   +-- test_approximations.py    #   37개 테스트 케이스
@@ -87,7 +92,7 @@ KS-test/
      |Saddlepoint| |Edgeworth  |         |Gram-      | |   PAG(d)  |
      |  ER1/ER2  | |(chi-sq +  |         |Charlier   | | (gamma x  |
      |           | | Laguerre) |         |Type A     | | polynomial|
-     +-----------+ +-----------+         |(Hermite)  | |  d=4,6)   |
+     +-----------+ +-----------+         |(Hermite)  | |  any d)   |
      |  +- CC    |                       +-----------+ +-----------+
      |  variants |
      +-----+-----+
@@ -148,16 +153,22 @@ for method, p in results.items():
 | GC-A     | 'gram_charlier'    | -                    | Hermite 기반          |
 | PAG(4)   | 'pam'              | -                    | 감마 x 다항식 (d=4)   |
 | PAG(6)   | 'pam6'             | -                    | 감마 x 다항식 (d=6)   |
+| PAG(d)   | 'pam<d>'           | -                    | 임의 차수 (예 'pam8') |
 | -        | 'exact'            | -                    | 소표본 전용 (열거)    |
 | -        | 'simulation'       | -                    | MC 시뮬레이션         |
 +----------+--------------------+----------------------+-----------------------+
 ```
 
+> **PAG 임의 차수:** `'pam'`=PAG(4), `'pam6'`=PAG(6) 외에도 `'pam<d>'`(예 `'pam8'`, `'pam10'`)로
+> 임의 차수를 바로 호출할 수 있습니다. 차수가 높아지면 moment matrix가 병증(ill-conditioned)이라
+> 경고를 냅니다.
+
 > **SD2 / 폐기 CGF 메모:**
 >
 > - **SD2 / SDC2 = Wood-Booth-Butler (1993) gamma-based saddlepoint.** 논문 §4.2가 이미 인용·기술하는 비정규 base Lugannani--Rice. 구현은 `saddlepoint.py`의 `tail_probability_gamma_based(v, continuity_correction=False)`. 표 컬럼은 `SD2(WBB)` / `SDC2(WBB)`.
-> - **Wang** damped CGF는 N≈15 부근에서 $K''(\hat t)$ 가 0 근방으로 붕괴해 Lugannani--Rice가 폭주합니다 (예: (5,5,5) α=0.05 → 0.504, 참값 ~0.05). 코드 주석으로 보존, 실행 경로 비활성.
-> - **KT** $(1+\kappa_2)$ 다항식 CGF는 Kakizawa-Taniguchi (1994)에 그 식이 없습니다 (그 논문은 Edgeworth↔saddlepoint 차수 관계 이론). 점근적으로도 비일관(분산을 ~30% 고정 부풀림)이라 폐기.
+> - **Wang** damped CGF (과거 SD2)는 N≈15 부근에서 $K''(\hat t)$ 가 0 근방으로 붕괴해 Lugannani--Rice가 폭주합니다 (예: (5,5,5) α=0.05 → 0.504, 참값 ~0.05). **코드에서 제거**했습니다(과거 사유 기록용 메모만 유지).
+> - **KT** $(1+\kappa_2)$ 다항식 CGF는 Kakizawa-Taniguchi (1994)에 그 식이 없습니다 (그 논문은 Edgeworth↔saddlepoint 차수 관계 이론). 점근적으로도 비일관(분산을 ~30% 고정 부풀림)이라 **코드에서 제거**.
+> - 지원 CGF 이름은 `'ER1'`, `'ER2'`, `'exact'` 뿐이며, 그 외(`'Wang'` 등)를 `SaddlepointApproximation(cgf_method=...)`에 넘기면 `ValueError`가 발생합니다.
 
 ### 큐뮬런트 (Cumulants) -- Exact Finite-Sample
 
@@ -191,10 +202,9 @@ $$K_H(t) \approx \sum_{i=1}^{4} \frac{\kappa_i t^i}{i!}$$
 **ER2 (Easton-Ronchetti 2nd):**
 $$K_H(t) \approx \kappa_1 t + \frac{\kappa_2}{2}t^2 + \log\left(1 + \frac{\kappa_3}{6}t^3 + \frac{3\kappa_4}{72}t^4 + \frac{\kappa_3^2}{72}t^6\right)$$
 
-**Wang (damped, currently disabled and preserved in comments):**
-$$K_H(t) \approx \kappa_1 t + \frac{\kappa_2}{2}t^2 + \left(\frac{\kappa_3}{6}t^3 + \frac{\kappa_4}{24}t^4\right)\eta_p(t)$$
-
-여기서 $\eta_p(t) = \exp(-\kappa_2 p^2 t^2 / 2)$, $p$는 $K''_W(t;p) \geq 0$을 보장하는 최소 damping parameter.
+> **참고 (제거됨):** 과거 SD2에 쓰였던 Wang damped CGF
+> $K_H(t)\approx\kappa_1 t+\tfrac{\kappa_2}{2}t^2+(\tfrac{\kappa_3}{6}t^3+\tfrac{\kappa_4}{24}t^4)\,\eta_p(t)$,
+> $\eta_p(t)=\exp(-\kappa_2 p^2 t^2/2)$ 는 N≈15 부근 폭주로 코드에서 제거했습니다. 이제 SD2는 아래 WBB gamma-base입니다.
 
 **SD2 / SDC2 — gamma-based saddlepoint (Wood, Booth & Butler 1993):**
 
@@ -241,24 +251,53 @@ $$F_{ED}(x) = G_{\nu}(x) - g_{\nu}(x)\left[\frac{\gamma_1}{6}L_3^{(\nu/2-1)}(x/2
 
 $$f_{PAG}(x; d) = \psi(x) \sum_{i=0}^{d} \xi_i x^i$$
 
-처음 $d+1$개 모멘트를 일치시키는 계수 $\xi_0, \ldots, \xi_d$를 moment matrix 역행렬로 결정. $d=4$ 및 $d=6$ 변형 제공.
+처음 $d+1$개 모멘트를 일치시키는 계수 $\xi_0, \ldots, \xi_d$를 moment matrix 역행렬로 결정합니다. 차수는 **임의로 지정 가능**하며(`'pam<d>'` 또는 `PolynomialAdjustedGamma(sample_sizes, degree=d)`), 논문 표는 $d=4$(`'pam'`), $d=6$(`'pam6'`)를 사용합니다.
+
+```python
+from kw_approx import KWApproximator
+approx = KWApproximator([5, 5, 5])
+for m in ['pam', 'pam6', 'pam8', 'pam10']:      # PAG(4), (6), (8), (10)
+    print(m, approx.tail_probability(8.0, m))
+```
 
 ## 모멘트와 큐뮬런트
 
 귀무가설 하에서 H 통계량의 기본 모멘트:
 
-- **평균**: $E(H) = k - 1$
-- **분산**: Wallace (1959) exact formula:
+- **평균**: $E(H) = k - 1$ (정확, $n_i$ 무관)
+- **분산** (Wallace 1959 / 논문 Thm 3.9 정확 닫힌형):
 
-$$\text{Var}(H) = 2(k-1) - \frac{2A_W}{5\,N(N+1)} - \frac{6}{5}\sum_{i=1}^{k}\frac{1}{n_i}$$
-
-여기서 $A_W = 3k(k-2) + N(2k^2 - 6k + 1)$.
+$$\text{Var}(H) = 2(k-1) - \frac{2A_W}{5\,N(N+1)} - \frac{6}{5}\sum_{i=1}^{k}\frac{1}{n_i},\qquad A_W = 3k(k-2) + N(2k^2 - 6k + 1).$$
 
 **큐뮬런트** (exact finite-sample):
 - $\kappa_1 = E(H) = k - 1$
 - $\kappa_2 = \text{Var}(H)$
 - $\kappa_3 = \mu_3 - 3\mu_2\mu_1 + 2\mu_1^3$
 - $\kappa_4 = \mu_4 - 4\mu_3\mu_1 - 3\mu_2^2 + 12\mu_2\mu_1^2 - 6\mu_1^4$
+
+기본 파이프라인(`KWMoments`)은 $\kappa_1,\dots,\kappa_4$ 를 소표본에서는 정확 분포 열거, 대표본에서는 시뮬레이션의 유한표본 모멘트에서 구합니다.
+
+### 닫힌형 조합식 큐뮬런트 (Theorem 3.12)
+
+논문 Theorem 3.12에 따라 $\kappa_3(H)=c^3\kappa_3(Q)$, $\kappa_4(H)=c^4\kappa_4(Q)$ ($c=12/[N(N+1)]$, $Q=\sum_i U_i^2/n_i$) 를 **열거 없이** 중심순위합의 짝수 결합모멘트(다변량 초기하 master 공식)로 직접 계산합니다. `cumulants_closed_form.py`에 유리수(`fractions.Fraction`)로 구현되어, Table 2의 exact 값을 **근사가 아니라 그대로 재현**합니다(유리수 열거와 $\Delta=0$).
+
+```python
+from kw_approx.cumulants_closed_form import cumulants_closed_form, kappa_H
+
+c = cumulants_closed_form([5, 5, 5])
+print(c["k3"], c["k4"], c["gamma1"], c["gamma2"])
+#   8.1469  21.0201  1.3969  2.0024   <- 논문 Table 2 (5,5,5)와 동일
+print(kappa_H([5, 5, 5], 3))   # 정확 유리수 Fraction(14257, 1750)
+```
+
+검증/그림 재생성:
+
+```bash
+uv run python examples/verify_cumulants_exact_identity.py   # 21개 설계 모두 Δ=0
+uv run python examples/verify_cumulants_closed_form.py      # 3중 대조 + 수렴 그림
+uv run python examples/plot_k3_k4_axes.py                   # k3 vs k4
+uv run python examples/plot_gamma1_gamma2_axes.py           # gamma1 vs gamma2
+```
 
 ## 상세 사용법
 

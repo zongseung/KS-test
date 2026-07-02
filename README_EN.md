@@ -31,17 +31,22 @@ KS-test/
 |   |-- __init__.py               #   Package init (v0.3.0)
 |   |-- kruskal_wallis.py         #   H statistic computation
 |   |-- moments.py                #   Moments/cumulants (exact/simulation)
+|   |-- cumulants_closed_form.py  #   Closed-form k3/k4 (Thm 3.12, no enumeration)
 |   |-- saddlepoint.py            #   Saddlepoint approx (ER1/ER2 + L-R, WBB gamma-base = SD2)
 |   |-- edgeworth.py              #   Edgeworth expansion (chi-sq + Laguerre)
 |   |-- gram_charlier.py          #   Gram-Charlier Type A (Hermite)
-|   |-- pam.py                    #   PAG(d) polynomially adjusted gamma
+|   |-- pam.py                    #   PAG(d) polynomially adjusted gamma (arbitrary degree)
 |   |-- exact.py                  #   Exact distribution (recursive enumeration)
 |   |-- simulation.py             #   Monte Carlo simulation
 |   +-- approximator.py           #   Unified interface (KWApproximator)
 |
 |-- examples/
-|   |-- reproduce_paper_tables.py #   Reproduce paper Tables 4.1-4.7 + extensions
-|   +-- tables_to_latex.py        #   Raw text -> LaTeX (sorted by n1,n2,n3,n4)
+|   |-- reproduce_paper_tables.py       # Reproduce paper Tables 4.1-4.7 + extensions
+|   |-- tables_to_latex.py              # Raw text -> LaTeX (sorted by n1,n2,n3,n4)
+|   |-- verify_cumulants_closed_form.py # Closed-form k3/k4 <-> Table 2 <-> enumeration + figure
+|   |-- verify_cumulants_exact_identity.py # Rational enumeration proves the closed form is an identity
+|   |-- plot_k3_k4_axes.py              # k3(x) vs k4(y) scatter
+|   +-- plot_gamma1_gamma2_axes.py      # gamma1(x) vs gamma2(y) scatter
 |
 |-- tests/
 |   +-- test_approximations.py    #   37 test cases
@@ -87,7 +92,7 @@ KS-test/
      |Saddlepoint| |Edgeworth  |         |Gram-      | |   PAG(d)  |
      |  ER1/ER2  | |(chi-sq +  |         |Charlier   | | (gamma x  |
      |           | | Laguerre) |         |Type A     | | polynomial|
-     +-----------+ +-----------+         |(Hermite)  | |  d=4,6)   |
+     +-----------+ +-----------+         |(Hermite)  | |  any d)   |
      |  +- CC    |                       +-----------+ +-----------+
      |  variants |
      +-----+-----+
@@ -148,16 +153,22 @@ for method, p in results.items():
 | GC-A     | 'gram_charlier'    | -                    | Hermite-based         |
 | PAG(4)   | 'pam'              | -                    | Gamma x poly (d=4)    |
 | PAG(6)   | 'pam6'             | -                    | Gamma x poly (d=6)    |
+| PAG(d)   | 'pam<d>'           | -                    | Arbitrary d (e.g 'pam8')|
 | -        | 'exact'            | -                    | Small N enumeration   |
 | -        | 'simulation'       | -                    | Monte Carlo           |
 +----------+--------------------+----------------------+-----------------------+
 ```
 
+> **Arbitrary PAG degree:** besides `'pam'`=PAG(4) and `'pam6'`=PAG(6), any degree is callable as
+> `'pam<d>'` (e.g. `'pam8'`, `'pam10'`). Very high degrees make the moment matrix ill-conditioned
+> (a warning is emitted).
+
 > **SD2 / disabled CGF notes:**
 >
 > - **SD2 / SDC2 = Wood-Booth-Butler (1993) gamma-based saddlepoint.** The non-normal-base Lugannani--Rice approximation already described and cited in paper §4.2. Implemented in `saddlepoint.py` as `tail_probability_gamma_based(v, continuity_correction=False)`. Table columns are `SD2(WBB)` / `SDC2(WBB)`.
-> - **Wang** damped CGF: $K''(\hat t)$ collapses toward 0 deep in the tail near $N \approx 15$, blowing up Lugannani--Rice (e.g. (5,5,5) at $\alpha = 0.05$ returns 0.504 vs. reference ~0.05). Kept as comments, disabled in the execution path.
-> - **KT** $(1+\kappa_2)$ polynomial CGF: not present in Kakizawa-Taniguchi (1994) — that paper studies higher-order Edgeworth↔saddlepoint relations, not CGFs. The $(1+\kappa_2)$ shift is also asymptotically inconsistent (inflates variance by ~30% even as $N \to \infty$), so it was removed.
+> - **Wang** damped CGF (former SD2): $K''(\hat t)$ collapses toward 0 deep in the tail near $N \approx 15$, blowing up Lugannani--Rice (e.g. (5,5,5) at $\alpha = 0.05$ returns 0.504 vs. reference ~0.05). **Removed from the code** (kept only as a historical note).
+> - **KT** $(1+\kappa_2)$ polynomial CGF: not present in Kakizawa-Taniguchi (1994) — that paper studies higher-order Edgeworth↔saddlepoint relations, not CGFs. The $(1+\kappa_2)$ shift is also asymptotically inconsistent (inflates variance by ~30% even as $N \to \infty$), so it was **removed from the code**.
+> - Supported CGF names are only `'ER1'`, `'ER2'`, `'exact'`; passing anything else (e.g. `'Wang'`) to `SaddlepointApproximation(cgf_method=...)` raises `ValueError`.
 
 ### Cumulants -- Exact Finite-Sample
 
@@ -191,10 +202,9 @@ $$K_H(t) \approx \sum_{i=1}^{4} \frac{\kappa_i t^i}{i!}$$
 **ER2 (Easton-Ronchetti 2nd):**
 $$K_H(t) \approx \kappa_1 t + \frac{\kappa_2}{2}t^2 + \log\left(1 + \frac{\kappa_3}{6}t^3 + \frac{3\kappa_4}{72}t^4 + \frac{\kappa_3^2}{72}t^6\right)$$
 
-**Wang (damped, currently disabled and preserved in comments):**
-$$K_H(t) \approx \kappa_1 t + \frac{\kappa_2}{2}t^2 + \left(\frac{\kappa_3}{6}t^3 + \frac{\kappa_4}{24}t^4\right)\eta_p(t)$$
-
-where $\eta_p(t) = \exp(-\kappa_2 p^2 t^2 / 2)$, and $p$ is the minimum damping parameter ensuring $K''_W(t;p) \geq 0$.
+> **Note (removed):** the Wang damped CGF once used for SD2,
+> $K_H(t)\approx\kappa_1 t+\tfrac{\kappa_2}{2}t^2+(\tfrac{\kappa_3}{6}t^3+\tfrac{\kappa_4}{24}t^4)\,\eta_p(t)$
+> with $\eta_p(t)=\exp(-\kappa_2 p^2 t^2/2)$, was removed from the code (blows up near $N\approx15$). SD2 is now the WBB gamma-base below.
 
 **SD2 / SDC2 — gamma-based saddlepoint (Wood, Booth & Butler 1993):**
 
@@ -237,24 +247,44 @@ Gamma density multiplied by a degree-$d$ polynomial:
 
 $$f_{PAG}(x; d) = \psi(x) \sum_{i=0}^{d} \xi_i x^i$$
 
-Coefficients $\xi_0, \ldots, \xi_d$ are determined by matching the first $d+1$ moments via moment matrix inversion. Variants $d=4$ and $d=6$ are provided.
+Coefficients $\xi_0, \ldots, \xi_d$ are determined by matching the first $d+1$ moments via moment matrix inversion. **Any degree** is available (`'pam<d>'` or `PolynomialAdjustedGamma(sample_sizes, degree=d)`); the paper uses $d=4$ (`'pam'`) and $d=6$ (`'pam6'`).
+
+```python
+from kw_approx import KWApproximator
+approx = KWApproximator([5, 5, 5])
+for m in ['pam', 'pam6', 'pam8', 'pam10']:      # PAG(4), (6), (8), (10)
+    print(m, approx.tail_probability(8.0, m))
+```
 
 ## Moments and Cumulants
 
 Under $H_0$:
 
-- **Mean**: $E(H) = k - 1$
-- **Variance**: Wallace (1959) exact formula:
+- **Mean**: $E(H) = k - 1$ (exact, independent of $n_i$)
+- **Variance** (Wallace 1959 / paper Thm 3.9 exact closed form):
 
-$$\text{Var}(H) = 2(k-1) - \frac{2A_W}{5\,N(N+1)} - \frac{6}{5}\sum_{i=1}^{k}\frac{1}{n_i}$$
-
-where $A_W = 3k(k-2) + N(2k^2 - 6k + 1)$.
+$$\text{Var}(H) = 2(k-1) - \frac{2A_W}{5\,N(N+1)} - \frac{6}{5}\sum_{i=1}^{k}\frac{1}{n_i},\qquad A_W = 3k(k-2) + N(2k^2 - 6k + 1).$$
 
 **Cumulants** (exact finite-sample):
 - $\kappa_1 = E(H) = k - 1$
 - $\kappa_2 = \text{Var}(H)$
 - $\kappa_3 = \mu_3 - 3\mu_2\mu_1 + 2\mu_1^3$
 - $\kappa_4 = \mu_4 - 4\mu_3\mu_1 - 3\mu_2^2 + 12\mu_2\mu_1^2 - 6\mu_1^4$
+
+The default pipeline (`KWMoments`) obtains $\kappa_1,\dots,\kappa_4$ from exact enumeration (small samples) or simulated finite-sample moments (large samples).
+
+### Closed-form combinatorial cumulants (Theorem 3.12)
+
+Per paper Theorem 3.12, $\kappa_3(H)=c^3\kappa_3(Q)$ and $\kappa_4(H)=c^4\kappa_4(Q)$ ($c=12/[N(N+1)]$, $Q=\sum_i U_i^2/n_i$) are computed **without enumeration** from the even joint moments of the centred rank sums (multivariate hypergeometric master formula). `cumulants_closed_form.py` implements this in exact rationals (`fractions.Fraction`) and **reproduces the exact Table 2 values, not an approximation** ($\Delta=0$ against rational enumeration).
+
+```python
+from kw_approx.cumulants_closed_form import cumulants_closed_form, kappa_H
+
+c = cumulants_closed_form([5, 5, 5])
+print(c["k3"], c["k4"], c["gamma1"], c["gamma2"])
+#   8.1469  21.0201  1.3969  2.0024   <- equals paper Table 2 for (5,5,5)
+print(kappa_H([5, 5, 5], 3))   # exact Fraction(14257, 1750)
+```
 
 ## Detailed Usage
 
