@@ -205,34 +205,6 @@ class KWMoments:
         # enforce known exact mean under H0
         self._raw_moments[1] = float(self.k - 1)
     
-    def _compute_variance_exact(self) -> float:
-        """
-        Compute exact variance of H under H0 using Wallace (1959) Eq. 6.2.
-
-        Var(H) = 2(k-1) - (2/5)*A/[N(N+1)] - (6/5)*sum(1/n_i)
-
-        where A = 3k(k-2) + N(2k^2 - 6k + 1).
-
-        This is the exact finite-sample formula, verified against brute-force
-        enumeration for all sample sizes tested.
-
-        Reference: Wallace, D.L. (1959). Simplified Beta-Approximations to the
-        Kruskal-Wallis H Test. JASA, 54(285), 225-230.
-        """
-        N = self.N
-        k = self.k
-        n = self.sample_sizes
-
-        if k <= 1 or N <= 1:
-            return 0.0
-
-        sum_inv_n = np.sum(1.0 / n)
-        A = 3 * k * (k - 2) + N * (2 * k**2 - 6 * k + 1)
-        var = 2 * (k - 1) - (2.0 / 5) * A / (N * (N + 1)) - (6.0 / 5) * sum_inv_n
-
-        return max(var, 1e-10)
-    
-    
     def _compute_central_moments(self):
         """Convert raw moments to central moments."""
         mu = self._raw_moments[1]
@@ -304,11 +276,6 @@ class KWMoments:
     def raw_moments(self) -> Dict[int, float]:
         """Get dictionary of raw moments."""
         return self._raw_moments.copy()
-    
-    @property
-    def central_moments(self) -> Dict[int, float]:
-        """Get dictionary of central moments."""
-        return self._central_moments.copy()
     
     @property
     def cumulants(self) -> Dict[int, float]:

@@ -18,7 +18,7 @@ References:
 """
 
 import numpy as np
-from typing import List, Optional
+from typing import List
 from scipy import stats
 from scipy.special import gamma as gamma_func, factorial
 from .moments import KWMoments
@@ -538,17 +538,6 @@ class EdgeworthApproximation:
             Value h such that P(H <= h) = q
         """
         return self.critical_value(1 - q)
-
-    def error_bound(self) -> float:
-        """
-        Estimate Berry-Esseen type error bound for the approximation.
-
-        Returns
-        -------
-        float
-            Estimated error bound
-        """
-        return 1.0 / self.N
 
     def get_parameters(self) -> dict:
         """

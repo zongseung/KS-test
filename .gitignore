@@ -29,3 +29,8 @@ my-skill/
 find_*.py
 verify_*.py
 simplify_*.py
+# ...but keep the packaged example verification scripts
+!examples/verify_*.py
+
+# macOS
+.DS_Store

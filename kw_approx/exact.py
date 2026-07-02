@@ -17,7 +17,7 @@ References:
 """
 
 import numpy as np
-from typing import List, Tuple, Dict, Optional
+from typing import List, Tuple, Dict
 from functools import lru_cache
 from collections import defaultdict
 import warnings
@@ -59,16 +59,9 @@ class ExactDistribution:
         
         # Compute distribution
         self._distribution = None
-        self._cdf_cache = {}
-    
+
     def _check_feasibility(self):
         """Check if exact computation is feasible."""
-        # Rough estimate of number of permutations
-        from math import factorial, comb
-
-        # Number of distinct rank sum tuples is bounded by product of ranges
-        # For k groups, this is approximately O(N^k)
-
         if self.N > 15:
             if self.N <= 100:
                 recommended = "pam (PAG, degree=4) or saddlepoint (SD1)"
@@ -92,10 +85,6 @@ class ExactDistribution:
         Dict[float, float]
             Mapping from H values to probabilities
         """
-        n = self.sample_sizes
-        N = self.N
-        k = self.k
-        
         # Use dynamic programming to count rank sum configurations
         rank_sum_counts = self._enumerate_rank_sums()
         
@@ -123,8 +112,8 @@ class ExactDistribution:
         int
             Multinomial coefficient (total number of rank assignments)
         """
-        from math import factorial, comb
-        
+        from math import comb
+
         result = 1
         remaining = self.N
         for n_i in self.sample_sizes:
@@ -360,51 +349,6 @@ class ExactDistribution:
         # Return smallest H value if alpha > 1 (shouldn't happen)
         return min(sorted_h), 1.0
     
-    def percentage_points(self, percentiles: List[float]) -> Dict[float, float]:
-        """
-        Compute percentage points for multiple percentiles.
-        
-        Parameters
-        ----------
-        percentiles : List[float]
-            List of percentiles (e.g., [0.90, 0.95, 0.99])
-            
-        Returns
-        -------
-        Dict[float, float]
-            Mapping from percentile to H value
-        """
-        # Sort H values
-        sorted_h = sorted(self.distribution.keys())
-        
-        # Compute cumulative probabilities
-        cum_prob = 0.0
-        cum_probs = []
-        for h in sorted_h:
-            cum_prob += self.distribution[h]
-            cum_probs.append((h, cum_prob))
-        
-        # Find percentage points
-        result = {}
-        for p in percentiles:
-            for h, cp in cum_probs:
-                if cp >= p:
-                    result[p] = h
-                    break
-        
-        return result
-    
-    def get_sorted_distribution(self) -> List[Tuple[float, float]]:
-        """
-        Get distribution as sorted list of (H, probability) pairs.
-        
-        Returns
-        -------
-        List[Tuple[float, float]]
-            Sorted list of (H_value, probability) tuples
-        """
-        return sorted(self.distribution.items())
-    
     def summary(self) -> Dict:
         """
         Compute summary statistics of the exact distribution.
@@ -442,26 +386,6 @@ class ExactDistribution:
             'min_H': min(dist.keys()),
             'max_H': max(dist.keys())
         }
-    
-    def compute_raw_moments(self, max_order: int = 6) -> Dict[int, float]:
-        """
-        Compute raw moments E[H^k] from exact distribution.
-        
-        Parameters
-        ----------
-        max_order : int
-            Maximum moment order to compute
-            
-        Returns
-        -------
-        Dict[int, float]
-            Dictionary mapping order k to E[H^k]
-        """
-        dist = self.distribution
-        moments = {}
-        for k in range(1, max_order + 1):
-            moments[k] = sum(h**k * p for h, p in dist.items())
-        return moments
     
     def __repr__(self) -> str:
         n_vals = len(self.distribution) if self._distribution else "not computed"

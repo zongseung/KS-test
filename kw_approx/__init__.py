@@ -9,8 +9,7 @@ of Kruskal-Wallis Statistics Based on Skewness and Kurtosis"
 
 Saddlepoint methods: SD1 = ER1 CGF + Lugannani-Rice; SD2 = gamma-based
 saddlepoint (Wood, Booth & Butler 1993). Continuity-corrected variants
-SDC1/SDC2. ER2 CGF is also available. Wang/KT CGFs are preserved in
-comments but disabled (Wang: unstable near N~15; KT: no published source).
+SDC1/SDC2. ER2 CGF is also available.
 All methods use exact finite-sample cumulants (Section 4 of the paper).
 
 References:

@@ -15,9 +15,9 @@ References:
 
 import numpy as np
 import warnings
-from typing import List, Tuple, Optional
+from typing import List, Tuple
 from scipy import stats
-from scipy.special import gamma as gamma_func, gammainc, gammaincc
+from scipy.special import gammainc
 from scipy.linalg import solve
 from .moments import KWMoments
 
