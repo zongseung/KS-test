@@ -8,8 +8,7 @@ References:
 - Murakami & Ha: Higher Order Asymptotic Approximations of Kruskal-Wallis Statistics
 """
 
-import numpy as np
-from typing import List, Dict, Optional, Tuple, Union
+from typing import List, Dict, Optional
 from scipy import stats
 import warnings
 
@@ -52,15 +51,12 @@ class KWApproximator:
     CGF_METHODS = [
         'ER1',
         'ER2',
-        # 'Wang',
     ]
 
     # Aliases for convenience.
     # Paper Section 4.2: SD1 = K_ER1 + Lugannani-Rice;
     #                    SD2 = gamma-based saddlepoint (Wood, Booth & Butler 1993).
     # SDC1 = SD1 + continuity correction; SDC2 = SD2 + continuity correction.
-    # (Wang was the original SD2 CGF but is numerically unstable near N~15;
-    #  the KT "(1+kappa_2)" CGF had no source and was removed.)
     METHOD_ALIASES = {
         'saddlepoint': 'ER1',
         'saddlepoint_sd2': 'gamma',
@@ -77,16 +73,14 @@ class KWApproximator:
         'chi_square',   # Traditional chi-square approximation (baseline)
         'ER1',          # Easton-Ronchetti 1st CGF + Lugannani-Rice
         'ER2',          # Easton-Ronchetti 2nd CGF + Lugannani-Rice
-        # 'Wang',       # Wang damped CGF + Lugannani-Rice
         'ER1_cc',       # ER1 with continuity correction
         'ER2_cc',       # ER2 with continuity correction
-        # 'Wang_cc',    # Wang with continuity correction
         'gamma',        # Gamma-based saddlepoint (Wood-Booth-Butler 1993) = SD2
         'gamma_cc',     # Gamma-based saddlepoint + continuity correction = SDC2
         'edgeworth',    # Edgeworth expansion approximation
         'edgeworth_hk', # Hall/Kolassa Edgeworth with asymptotic cumulants (ED-HK)
         'gram_charlier', # Gram-Charlier Type A series
-        'pam',          # Polynomially adjusted gamma (degree=4)
+        'pam',          # Polynomially adjusted gamma (degree=4); PAG(d) as 'pam<d>' (e.g. 'pam8')
         'pam6',         # Polynomially adjusted gamma (degree=6)
         'exact',        # Exact combinatorial (small samples only)
         'simulation',   # Monte Carlo simulation
@@ -114,6 +108,19 @@ class KWApproximator:
     def _get_cgf_method_name(self, method: str) -> str:
         """Extract CGF method name (e.g., 'ER1' from 'ER1_cc')."""
         return method.replace('_cc', '')
+
+    @staticmethod
+    def _pam_degree(method: str):
+        """Return the PAG polynomial degree for a 'pam'/'pam<d>' method string.
+
+        'pam' -> 4 (default), 'pam6' -> 6, 'pam8' -> 8, ...; None otherwise.
+        Lets any degree be requested as method='pam<d>' (e.g. 'pam10').
+        """
+        if method == 'pam':
+            return 4
+        if method.startswith('pam') and method[3:].isdigit():
+            return int(method[3:])
+        return None
 
     def _get_method(self, method: str):
         """Get or initialize an approximation method."""
@@ -153,10 +160,10 @@ class KWApproximator:
             self._methods[method] = EdgeworthApproximation(self.sample_sizes)
         elif method == 'gram_charlier':
             self._methods[method] = GramCharlierApproximation(self.sample_sizes)
-        elif method == 'pam':
-            self._methods[method] = PolynomialAdjustedGamma(self.sample_sizes, degree=4)
-        elif method == 'pam6':
-            self._methods[method] = PolynomialAdjustedGamma(self.sample_sizes, degree=6)
+        elif self._pam_degree(method) is not None:
+            self._methods[method] = PolynomialAdjustedGamma(
+                self.sample_sizes, degree=self._pam_degree(method)
+            )
         else:
             raise ValueError(f"Unknown method: {method}. "
                            f"Available: {self.AVAILABLE_METHODS}")
@@ -207,7 +214,7 @@ class KWApproximator:
             sim = self._get_method(method)
             return sim.tail_probability(h)
 
-        elif method in ('edgeworth', 'gram_charlier', 'pam', 'pam6'):
+        elif method in ('edgeworth', 'gram_charlier') or self._pam_degree(method) is not None:
             obj = self._get_method(method)
             return obj.tail_probability(h)
 
@@ -264,7 +271,7 @@ class KWApproximator:
             exact = self._get_method(method)
             return exact.pmf(h)
 
-        elif method in ('edgeworth', 'gram_charlier', 'pam', 'pam6'):
+        elif method in ('edgeworth', 'gram_charlier') or self._pam_degree(method) is not None:
             obj = self._get_method(method)
             return obj.pdf(h)
 
@@ -310,7 +317,7 @@ class KWApproximator:
             cv, exact_alpha = exact.critical_value(alpha)
             return cv
 
-        elif method in ('edgeworth', 'gram_charlier', 'pam', 'pam6'):
+        elif method in ('edgeworth', 'gram_charlier') or self._pam_degree(method) is not None:
             obj = self._get_method(method)
             return obj.critical_value(alpha)
 
@@ -395,50 +402,6 @@ class KWApproximator:
         else:
             return 'ER1'
 
-    def generate_table(self, h_values: Optional[List[float]] = None,
-                      methods: Optional[List[str]] = None,
-                      alpha_values: Optional[List[float]] = None) -> Dict:
-        """
-        Generate comparison tables similar to those in the paper.
-
-        Parameters
-        ----------
-        h_values : List[float], optional
-            H statistic values to evaluate
-        methods : List[str], optional
-            Methods to include
-        alpha_values : List[float], optional
-            Significance levels for critical values
-
-        Returns
-        -------
-        Dict
-            Dictionary with 'probabilities' and 'critical_values' tables
-        """
-        if methods is None:
-            methods = ['chi_square'] + self.CGF_METHODS
-            if self.N <= 20:
-                methods.append('exact')
-
-        if alpha_values is None:
-            alpha_values = [0.10, 0.05, 0.01]
-
-        prob_table = {}
-        if h_values is not None:
-            for h in h_values:
-                prob_table[h] = self.compare_methods(h, methods)
-
-        cv_table = {}
-        for alpha in alpha_values:
-            cv_table[alpha] = self.compare_critical_values(alpha, methods)
-
-        return {
-            'probabilities': prob_table,
-            'critical_values': cv_table,
-            'sample_sizes': self.sample_sizes,
-            'methods': methods
-        }
-
     def summary(self) -> Dict:
         """
         Get summary information about the approximation setup.
@@ -461,24 +424,6 @@ class KWApproximator:
             'cumulants': {i: self.moments.cumulants[i] for i in range(1, 5)},
             'recommended_method': self.recommend_method()
         }
-
-    def test_statistic(self, *groups: np.ndarray) -> Tuple[float, Dict[str, float]]:
-        """
-        Compute test statistic from data and p-values using multiple methods.
-
-        Parameters
-        ----------
-        *groups : np.ndarray
-            Data arrays for each group
-
-        Returns
-        -------
-        Tuple[float, Dict[str, float]]
-            (H_statistic, dict of p-values by method)
-        """
-        H = self.kw.compute_statistic(*groups)
-        p_values = self.compare_methods(H)
-        return H, p_values
 
     def __repr__(self) -> str:
         return (f"KWApproximator(k={self.k}, N={self.N}, "

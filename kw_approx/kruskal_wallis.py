@@ -5,7 +5,7 @@ Implements the Kruskal-Wallis H statistic and related computations.
 """
 
 import numpy as np
-from typing import List, Tuple, Union
+from typing import List
 from scipy import stats
 
 
@@ -139,36 +139,6 @@ class KruskalWallisStatistic:
         """
         return float(self.k - 1)
     
-    def variance(self) -> float:
-        """
-        Compute the variance of H under H0.
-        
-        Var[H] = 2(k-1) + (C2 - C3/N) / (N(N+1))
-        
-        where C2 and C3 are correction terms based on sample sizes.
-        
-        Returns
-        -------
-        float
-            Variance of H
-        """
-        N = self.N
-        k = self.k
-        n = self.sample_sizes
-        
-        # Basic chi-square variance component
-        var_base = 2 * (k - 1)
-        
-        # Correction for finite samples
-        sum_ni_inv = np.sum(1.0 / n)
-        sum_ni2_inv = np.sum(1.0 / n**2)
-        
-        # Using the formula from the paper's moment derivation
-        # This is a simplified version; exact formula involves more terms
-        correction = (sum_ni_inv * (N + 1) - k) / (N * (N + 1))
-        
-        return var_base * (1 + correction)
-    
     def chi_square_approximation(self, h_value: float) -> float:
         """
         Compute p-value using chi-square approximation.
@@ -191,23 +161,3 @@ class KruskalWallisStatistic:
     def __repr__(self) -> str:
         return (f"KruskalWallisStatistic(k={self.k}, N={self.N}, "
                 f"sample_sizes={list(self.sample_sizes)})")
-
-
-def compute_h(sample_sizes: List[int], rank_sums: List[float]) -> float:
-    """
-    Convenience function to compute H statistic.
-    
-    Parameters
-    ----------
-    sample_sizes : List[int]
-        Sample sizes for each group
-    rank_sums : List[float]
-        Sum of ranks for each group
-        
-    Returns
-    -------
-    float
-        The H statistic
-    """
-    kw = KruskalWallisStatistic(sample_sizes)
-    return kw.compute_from_rank_sums(rank_sums)

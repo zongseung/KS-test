@@ -12,9 +12,8 @@ References:
 """
 
 import numpy as np
-from typing import List, Tuple, Optional
+from typing import List
 from scipy import stats
-from scipy.special import factorial
 from .moments import KWMoments
 
 
@@ -298,42 +297,6 @@ class GramCharlierApproximation:
             Value h such that P(H <= h) = q
         """
         return self.critical_value(1 - q)
-    
-    def cornish_fisher_quantile(self, alpha: float) -> float:
-        """
-        Cornish-Fisher expansion for quantiles.
-        
-        This provides an alternative way to compute critical values
-        by inverting the Gram-Charlier expansion.
-        
-        The (1-α) quantile is approximately:
-        
-        h ≈ μ + σ * [z_α + (γ₁/6)*(z_α² - 1) + (γ₂/24)*(z_α³ - 3*z_α) 
-                     - (γ₁²/36)*(2*z_α³ - 5*z_α)]
-        
-        where z_α is the (1-α) quantile of the standard normal.
-        
-        Parameters
-        ----------
-        alpha : float
-            Significance level
-            
-        Returns
-        -------
-        float
-            Critical value from Cornish-Fisher expansion
-        """
-        # Standard normal quantile
-        z_alpha = stats.norm.ppf(1 - alpha)
-        
-        # Cornish-Fisher correction terms
-        term1 = self.gamma1 / 6 * (z_alpha**2 - 1)
-        term2 = self.gamma2 / 24 * (z_alpha**3 - 3*z_alpha)
-        term3 = -self.gamma1**2 / 36 * (2*z_alpha**3 - 5*z_alpha)
-        
-        z_cf = z_alpha + term1 + term2 + term3
-        
-        return self.mu + self.sigma * z_cf
     
     def get_parameters(self) -> dict:
         """
